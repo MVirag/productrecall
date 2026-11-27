@@ -16,7 +16,7 @@ const icons = {
   'icon-192.png': { size: 192, svg: `<rect width="512" height="512" rx="112" fill="${SLATE}"/>${glyph('#fff')}` },
   'icon-512.png': { size: 512, svg: `<rect width="512" height="512" rx="112" fill="${SLATE}"/>${glyph('#fff')}` },
   // Maskable: full bleed, glyph inside the 80% safe zone.
-  'maskable-512.png': { size: 512, svg: `<rect width="512" height="512" fill="${SLATE}"/><g transform="translate(256 262) scale(.72) translate(-256 -256)">${glyph('#fff')}</g>` },
+  'maskable-512.png': { size: 512, svg: `<rect width="512" height="512" fill="${SLATE}"/><g transform="translate(256 256) scale(.72) translate(-256 -256)">${glyph('#fff')}</g>` },
   // Android status-bar badge: white on transparent (only alpha is used).
   'badge-96.png': { size: 96, svg: glyph('#fff'), transparent: true },
 };
