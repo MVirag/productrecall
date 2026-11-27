@@ -42,12 +42,12 @@ const VULNERABLE = /gravid|særligt modtagelige|svækket immunforsvar|små børn
 export const LEVELS = ['health', 'allergy', 'possible', 'notacute', 'unfit', 'unstated'];
 
 export const LEVEL_LABELS = {
-  health: { da: 'Kan gøre dig syg', en: 'Can make you ill', icon: '●', emoji: '🔴' },
-  allergy: { da: 'Farlig ved allergi', en: 'Dangerous if allergic', icon: '▲', emoji: '🟠' },
-  possible: { da: 'Sundhedsrisiko kan ikke udelukkes', en: 'Health risk cannot be ruled out', icon: '◆', emoji: '🟠' },
-  notacute: { da: 'Ikke akut', en: 'Not acute', icon: '◆', emoji: '🟡' },
-  unfit: { da: 'Uegnet som fødevare', en: 'Unfit to eat', icon: '○', emoji: '⚪' },
-  unstated: { da: 'Risiko ikke angivet', en: 'Risk not stated', icon: '■', emoji: '❗' },
+  health: { da: 'Kan gøre dig syg', en: 'Can make you ill', emoji: '🔴' },
+  allergy: { da: 'Farlig ved allergi', en: 'Dangerous if allergic', emoji: '🟠' },
+  possible: { da: 'Sundhedsrisiko kan ikke udelukkes', en: 'Health risk cannot be ruled out', emoji: '🟠' },
+  notacute: { da: 'Ikke akut', en: 'Not acute', emoji: '🟡' },
+  unfit: { da: 'Uegnet som fødevare', en: 'Unfit to eat', emoji: '⚪' },
+  unstated: { da: 'Risiko ikke angivet', en: 'Risk not stated', emoji: '❗' },
 };
 
 function sentences(text) {

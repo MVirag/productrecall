@@ -309,8 +309,6 @@ async function viewRecall(id) {
   const s = summarize(r, settings, settings.lang);
   const d = decide(r, settings);
   setTitle(s.product);
-  const replayMsg = h('p', { class: 'small', role: 'status' });
-  const sub = await currentSubscription().catch(() => null);
   const unsure = (r.uncertain || []).map((k) => STRINGS[settings.lang].unsureFields[k] || k);
   // English: show the machine translation unless the reader asked for the original.
   const en = settings.lang === 'en' && r.en && !showOriginal.has(r.id) ? r.en : null;
@@ -323,7 +321,7 @@ async function viewRecall(id) {
   const shareText = [s.severityText, `${s.store} · ${s.product}`, [s.dates, s.reason, s.action].filter(Boolean).join(' · ')].join('\n');
 
   m.replaceChildren(
-    h('a', { href: '#/', class: 'back' }, `← ${t('back')}`),
+    h('a', { href: '#/', class: 'back' }, icon('arrow-left'), t('back')),
     h('article', { class: 'detail' },
       sevBadge(s, 'banner'),
       s.severity.quote ? h('blockquote', { class: 'authority' },
@@ -347,7 +345,7 @@ async function viewRecall(id) {
         factRow('tag', s.reason, t('why')),
         factRow('pin', s.store, t('whereSold'))),
       h('div', { class: 'row' },
-        h('button', { type: 'button', class: 'btn', onclick: () => share({ title: s.product, text: shareText, url: recallUrl }, shareMsg) }, `${t('share')} ↗`)),
+        h('button', { type: 'button', class: 'btn', onclick: () => share({ title: s.product, text: shareText, url: recallUrl }, shareMsg) }, icon('share'), t('share'))),
       shareMsg,
       tx.lead ? h('p', { class: 'lead' }, tx.lead) : null,
       r.products?.length ? checker(r) : null,
@@ -356,19 +354,10 @@ async function viewRecall(id) {
       tx.reason ? h('section', {}, h('h2', {}, t('why')), h('p', {}, tx.reason)) : null,
       tx.action ? h('section', {}, h('h2', {}, t('whatToDo')), h('p', {}, tx.action)) : null,
       r.recaller ? h('section', {}, h('h2', {}, t('recaller')), h('p', {}, r.recaller)) : null,
-      h('p', {}, h('a', { href: r.url, class: 'btn btn-primary', target: '_blank', rel: 'noopener' }, `${t('official')} ↗`)),
+      h('p', {}, h('a', { href: r.url, class: 'btn btn-primary', target: '_blank', rel: 'noopener' }, t('official'), icon('external'))),
       unsure.length ? h('p', { class: 'muted small' }, `${t('unsure')}: ${unsure.join(', ')}.`) : null,
       r.raw?.product ? h('details', {}, h('summary', {}, t('rawText')),
         ...Object.entries(r.raw).filter(([, v]) => v).map(([k, v]) => h('pre', { 'data-k': k }, v))) : null,
-      sub ? h('div', { class: 'replay' },
-        h('button', {
-          class: 'btn', type: 'button',
-          onclick: async () => {
-            replayMsg.textContent = '…';
-            try { await api('/api/replay', { endpoint: sub.endpoint, id: r.id }); replayMsg.textContent = t('replaySent'); }
-            catch (e) { replayMsg.textContent = `${t('sendFailed')}: ${e.data?.detail || e.message}`; }
-          },
-        }, t('replay')), replayMsg) : null,
     ),
   );
   window.scrollTo(0, 0);
@@ -514,7 +503,7 @@ async function viewSettings() {
       h('p', { class: 'muted small' }, t('shareSettingsHelp')),
       h('button', { type: 'button', class: 'btn', onclick: () => share({
         title: t('appName'), text: t('shareSettingsText'), url: `${location.origin}/#/import/${encodeSettings()}`,
-      }, msg) }, `${t('shareSettings')} ↗`)),
+      }, msg) }, icon('share'), t('shareSettings'))),
 
     h('section', { class: 'panel muted small' },
       h('h2', {}, t('status')),
