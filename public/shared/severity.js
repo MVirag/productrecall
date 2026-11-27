@@ -70,6 +70,11 @@ export function classify(recall) {
   return { level: 'unstated', quote: '' };
 }
 
+/** Is a parser allergen name (e.g. "hvede") covered by an allergen in the household profile? */
+export function coversAllergen(name, profileAllergens = []) {
+  return profileAllergens.some((a) => (COVERS[a] || [a]).includes(name));
+}
+
 function allergenHits(recall, profileAllergens = []) {
   const found = recall.reason?.allergens || [];
   return profileAllergens.filter((a) => (COVERS[a] || [a]).some((x) => found.includes(x)));
