@@ -126,8 +126,9 @@ test('first run seeds silently, a new recall is pushed once and decrypts correct
   verifyVapid(init.headers.authorization, env.VAPID_PUBLIC_KEY, url);
   const msg = phone.decrypt(init.body);
   assert.equal(msg.title, '🟡 Din butik: Lidl · FAVORINA Pebernødder, 400 g +12 flere');
-  assert.equal(init.headers.urgency, 'normal', 'mycotoxins are not urgent');
-  assert.equal(msg.silent, true);
+  assert.equal(init.headers.urgency, 'high', 'nothing is quiet unless the user chose it');
+  assert.equal(msg.silent, false);
+  assert.match(msg.body, /^Ikke akut · /);
   assert.match(msg.body, /Bedst før 30\.09\.2026 \+2 · Mykotoksiner · Kassér/);
   assert.equal(msg.url, '/#/recall/2026-nov-tilbagekald-smaakager-coronet');
 
@@ -197,7 +198,7 @@ test('API: subscribe, settings, test push and replay', async () => {
 
     assert.equal((await call('/api/subscribe', { subscription: { endpoint: 'https://evil.example/x', keys: phone.subscription.keys } })).status, 400);
     const sub = await (await call('/api/subscribe', { subscription: phone.subscription, settings: { chains: ['Rema 1000'], mode: 'mine', words: ['kebab'], lang: 'en', extra: 'x', allergens: ['æg', 'bogus'], vulnerable: true } })).json();
-    assert.deepEqual(sub.settings, { chains: ['Rema 1000'], mode: 'mine', words: ['kebab'], lang: 'en', allergens: ['æg'], vulnerable: true });
+    assert.deepEqual(sub.settings, { chains: ['Rema 1000'], mode: 'mine', words: ['kebab'], lang: 'en', allergens: ['æg'], vulnerable: true, quiet: [] });
 
     const t = await call('/api/test', { endpoint: phone.subscription.endpoint });
     assert.equal(t.status, 200);
@@ -211,8 +212,8 @@ test('API: subscribe, settings, test push and replay', async () => {
     const r = await call('/api/replay', { endpoint: phone.subscription.endpoint, id: '2026-nov-tilbagekald-af-oksekebab' });
     assert.equal(r.status, 200);
     const msg = phone.decrypt(net.pushes.at(-1).init.body);
-    assert.equal(msg.title, "🟡 Your store: Rema 1000 · Heat'n Eat Okse kebab");
-    assert.match(msg.body, /^Long-term · 400 g · Best before 07\.04\.2028 \+1 · Prohibited cattle material · Return to store or discard$/);
+    assert.equal(msg.title, "🔴 Your store: Rema 1000 · Heat'n Eat Okse kebab");
+    assert.match(msg.body, /^Can make you ill · 400 g · Best before 07\.04\.2028 \+1 · Prohibited cattle material · Return to store or discard$/);
 
     const list = await (await call('/api/recalls')).json();
     assert.ok(list.recalls.length >= 6);

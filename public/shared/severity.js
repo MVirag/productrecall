@@ -1,6 +1,7 @@
-// How serious is a recall, for this household?
-// Levels: acute > allergy > longterm > quality. "other" = unknown reason,
-// treated as urgent so nothing serious is ever silenced by mistake.
+// Recall categories taken from Fødevarestyrelsen's own wording.
+// The app does not judge risk itself: it finds the sentence in the notice
+// that states the risk, files the recall under that statement and shows the
+// sentence as a quote. Nothing recognised -> "unstated" (never silenced by default).
 
 // The 14 EU allergens, keyed like the parser's allergen names.
 export const ALLERGENS = [
@@ -21,24 +22,53 @@ export const ALLERGEN_LABELS = {
 // Parser allergen names that fall under a profile allergen.
 const COVERS = { gluten: ['gluten', 'hvede'] };
 
-const LEVEL_OF = {
-  listeria: 'acute', salmonella: 'acute', ecoli: 'acute', foreign_body: 'acute',
-  botulism: 'acute', virus: 'acute', bacteria: 'acute',
-  allergen: 'allergy',
-  mycotoxin: 'longterm', pesticide: 'longterm', chemical: 'longterm', bse_material: 'longterm',
-  pests: 'quality', mould: 'quality', spoilage: 'quality',
-};
+// First rule whose wording appears in the notice wins. Order matters:
+// "not acute" beats the generic health wording around it, and an explicit
+// health statement beats "risk can't be ruled out".
+const RULES = [
+  ['allergy', /allergi(?:sk)?e? reaktion|allergi eller overfølsomhed/i],
+  ['notacute', /ikke tale om en akut|ikke opleve akutte|ingen akutte?\b/i],
+  ['health', /smitte|symptomer|sygdom|sygdomsfremkaldende|skader i|sundhedsrisiko|forgiftning|infektion/i],
+  ['possible', /risiko[^.]*ikke (?:kan )?udelukkes|ikke udelukke[^.]*risiko/i],
+  ['unfit', /uegnet som fødevare/i],
+];
 
-// Extra risk for pregnant women, small children, elderly, weak immune system.
-const VULNERABLE = new Set(['listeria', 'salmonella', 'ecoli', 'botulism']);
+// Stock sentences on many notices that say nothing about this recall's risk.
+const BOILERPLATE = /^(?:hvis du oplever symptomer|ved tvivl kontaktes|læs mere)/i;
+
+// The notice itself mentions especially vulnerable groups.
+const VULNERABLE = /gravid|særligt modtagelige|svækket immunforsvar|små børn|ældre/i;
+
+export const LEVELS = ['health', 'allergy', 'possible', 'notacute', 'unfit', 'unstated'];
 
 export const LEVEL_LABELS = {
-  acute: { da: 'Akut risiko – spis den ikke', en: 'Acute risk – do not eat', icon: '●', short: { da: 'Akut', en: 'Acute' } },
-  allergy: { da: 'Kun farlig ved allergi', en: 'Only a risk if allergic', icon: '▲', short: { da: 'Allergi', en: 'Allergy' } },
-  longterm: { da: 'Langsigtet risiko – ingen akutte symptomer', en: 'Long-term risk – no acute symptoms', icon: '◆', short: { da: 'Langsigtet', en: 'Long-term' } },
-  quality: { da: 'Uegnet som fødevare – ikke akut farlig', en: 'Unfit to eat – not acutely dangerous', icon: '○', short: { da: 'Uegnet', en: 'Unfit' } },
-  other: { da: 'Se opslaget for risiko', en: 'See the notice for the risk', icon: '●', short: { da: 'Se opslag', en: 'See notice' } },
+  health: { da: 'Kan gøre dig syg', en: 'Can make you ill', icon: '●', emoji: '🔴' },
+  allergy: { da: 'Farlig ved allergi', en: 'Dangerous if allergic', icon: '▲', emoji: '🟠' },
+  possible: { da: 'Sundhedsrisiko kan ikke udelukkes', en: 'Health risk cannot be ruled out', icon: '◆', emoji: '🟠' },
+  notacute: { da: 'Ikke akut', en: 'Not acute', icon: '◆', emoji: '🟡' },
+  unfit: { da: 'Uegnet som fødevare', en: 'Unfit to eat', icon: '○', emoji: '⚪' },
+  unstated: { da: 'Risiko ikke angivet', en: 'Risk not stated', icon: '■', emoji: '❗' },
 };
+
+function sentences(text) {
+  return (text || '')
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s && !BOILERPLATE.test(s));
+}
+
+/** Category + the authority's sentence that decided it. */
+export function classify(recall) {
+  // The reason section first; lead and advice only if it says nothing.
+  const pools = [sentences(recall.reason?.text), sentences(`${recall.lead || ''} ${recall.action?.text || ''}`)];
+  for (const pool of pools) {
+    for (const [level, re] of RULES) {
+      const quote = pool.find((s) => re.test(s));
+      if (quote) return { level, quote };
+    }
+  }
+  return { level: 'unstated', quote: '' };
+}
 
 function allergenHits(recall, profileAllergens = []) {
   const found = recall.reason?.allergens || [];
@@ -46,32 +76,33 @@ function allergenHits(recall, profileAllergens = []) {
 }
 
 /**
- * severity(recall, { allergens: [], vulnerable: false })
- * -> { level, urgent, personal, allergens: [...hits], vulnerable: bool }
+ * severity(recall, { allergens: [], vulnerable: false, quiet: [] })
+ * -> { level, quote, allergens: [...household hits], vulnerableMentioned,
+ *      personal, silent }
+ * `silent` is only ever the user's own choice (settings.quiet), never ours,
+ * and a household allergen hit is never silent.
  */
 export function severity(recall, profile = {}) {
-  const category = recall.reason?.category || 'other';
-  let level = LEVEL_OF[category] || 'other';
-  // Histamine poisoning is acute even though it's "chemical".
-  if (category === 'chemical' && /histamin/i.test(recall.reason?.text || '')) level = 'acute';
-  const hits = level === 'allergy' ? allergenHits(recall, profile.allergens) : [];
-  const vulnerable = !!profile.vulnerable && VULNERABLE.has(category);
-  const personal = hits.length > 0 || vulnerable;
-  const urgent = level === 'acute' || level === 'other' || hits.length > 0;
-  return { level, urgent, personal, allergens: hits, vulnerable };
+  const { level, quote } = classify(recall);
+  const hits = allergenHits(recall, profile.allergens);
+  const text = `${recall.reason?.text || ''} ${recall.lead || ''}`;
+  const vulnerableMentioned = VULNERABLE.test(text);
+  const personal = hits.length > 0 || (!!profile.vulnerable && vulnerableMentioned);
+  const silent = hits.length === 0 && (profile.quiet || []).includes(level);
+  return { level, quote, allergens: hits, vulnerableMentioned, personal, silent };
 }
 
-/** One-line explanation for card/detail. */
+/** Short label, personalised when the household's allergy matches. */
 export function severityText(sev, lang = 'da') {
-  if (sev.level === 'allergy' && sev.allergens.length) {
+  if (sev.allergens.length) {
     const names = sev.allergens.map((a) => ALLERGEN_LABELS[a]?.[lang] || a).join(', ');
     return lang === 'en' ? `Allergy in your household: ${names}` : `Allergi i din husstand: ${names}`;
   }
-  const base = LEVEL_LABELS[sev.level][lang];
-  if (sev.vulnerable) {
-    return lang === 'en'
-      ? `${base}. Extra serious for pregnant women and small children`
-      : `${base}. Ekstra alvorlig for gravide og små børn`;
-  }
-  return base;
+  return LEVEL_LABELS[sev.level][lang];
+}
+
+/** Note shown when the notice itself names vulnerable groups. */
+export function vulnerableText(lang = 'da') {
+  return lang === 'en' ? 'The notice mentions pregnant women or other vulnerable groups'
+    : 'Opslaget nævner gravide eller andre særligt udsatte';
 }

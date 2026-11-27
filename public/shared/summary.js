@@ -119,7 +119,7 @@ export function summarize(recall, settings = {}, lang = settings.lang || 'da') {
 
 /**
  * Should this recall notify this user, and why?
- * settings = { chains: [], mode: 'all' | 'mine', words: [], allergens: [], vulnerable: false }
+ * settings = { chains: [], mode: 'all' | 'mine', words: [], allergens: [], vulnerable: false, quiet: [] }
  * In "mine" mode a household allergen hit notifies like a watch word does.
  */
 export function decide(recall, settings = {}) {
@@ -131,7 +131,6 @@ export function decide(recall, settings = {}) {
   return { notify, words, stores, severity: sev, highlight };
 }
 
-const LEVEL_EMOJI = { acute: '🔴', other: '🔴', allergy: '🟠', longterm: '🟡', quality: '⚪' };
 
 /** Push notification payload. */
 export function notificationFor(recall, settings = {}) {
@@ -140,11 +139,10 @@ export function notificationFor(recall, settings = {}) {
   const d = decide(recall, settings);
   const flag = s.mine ? (lang === 'en' ? 'Your store: ' : 'Din butik: ') : '';
   const sev = d.severity;
-  const title = `${LEVEL_EMOJI[sev.level]} ${flag}${s.store} · ${s.product}`;
-  const level = sev.allergens.length ? s.severityText : LEVEL_LABELS[sev.level].short[lang];
-  const body = [level, s.size, s.dates, s.reason, s.action].filter(Boolean).join(' · ');
+  const title = `${LEVEL_LABELS[sev.level].emoji} ${flag}${s.store} · ${s.product}`;
+  const body = [s.severityText, s.size, s.dates, s.reason, s.action].filter(Boolean).join(' · ');
   return {
-    silent: !sev.urgent,
+    silent: sev.silent,
     title: title.slice(0, 120),
     body: body.slice(0, 240),
     tag: recall.id,

@@ -158,10 +158,13 @@ input[type="text"], input[type="date"] {
 /* Severity: icon + text, never colour alone */
 .sev { margin: .3rem 0 .1rem; font-weight: 700; display: flex; gap: .35rem; align-items: baseline; }
 .sev-icon { font-size: .95em; }
-.sev-acute, .sev-other { color: var(--acute); }
-.sev-allergy { color: var(--allergy); }
-.sev-longterm { color: var(--longterm); }
-.sev-quality { color: var(--quality); font-weight: 600; }
+.sev-health { color: var(--acute); }
+.sev-allergy, .sev-possible { color: var(--allergy); }
+.sev-notacute { color: var(--longterm); }
+.sev-unfit { color: var(--quality); font-weight: 600; }
+.sev-unstated { color: var(--text); }
+.authority { margin: .25rem 0 .75rem; padding: .5rem .75rem; border-left: 4px solid var(--border); background: var(--surface); border-radius: 0 8px 8px 0; font-style: italic; }
+.authority .small { font-style: normal; display: block; }
 .sev-personal { text-decoration: underline; text-underline-offset: 3px; }
 .detail .sev { font-size: 1.1rem; }
 .linkbtn { font: inherit; background: none; border: 0; padding: .5rem .25rem; min-height: 44px; color: var(--text); text-decoration: underline; cursor: pointer; }

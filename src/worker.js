@@ -5,7 +5,7 @@ import { poll, loadState, loadRecalls, KEYS } from './poll.js';
 import { sendPush, isValidSubscription, getVapid } from './push.js';
 import { notificationFor } from '../public/shared/summary.js';
 import { DEFAULT_CHAINS } from '../public/shared/chains.js';
-import { ALLERGENS } from '../public/shared/severity.js';
+import { ALLERGENS, LEVELS } from '../public/shared/severity.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -29,6 +29,7 @@ function cleanSettings(s = {}) {
     lang: s.lang === 'en' ? 'en' : 'da',
     allergens: list(s.allergens, 14, 20).filter((a) => ALLERGENS.includes(a)),
     vulnerable: s.vulnerable === true,
+    quiet: list(s.quiet, 6, 20).filter((l) => LEVELS.includes(l)),
   };
 }
 

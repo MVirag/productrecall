@@ -1,12 +1,12 @@
 import { STRINGS } from './i18n.js';
 import { DEFAULT_CHAINS } from './shared/chains.js';
 import { summarize, decide } from './shared/summary.js';
-import { ALLERGENS, ALLERGEN_LABELS, LEVEL_LABELS } from './shared/severity.js';
+import { ALLERGENS, ALLERGEN_LABELS, LEVEL_LABELS, LEVELS, vulnerableText } from './shared/severity.js';
 
 // ------------------------------------------------------------ settings (on device)
 
 const SETTINGS_KEY = 'tilbagekald.settings.v1';
-const defaults = { lang: 'da', mode: 'all', chains: [], extraChains: [], words: [], allergens: [], vulnerable: false };
+const defaults = { lang: 'da', mode: 'all', chains: [], extraChains: [], words: [], allergens: [], vulnerable: false, quiet: [] };
 
 function loadSettings() {
   try {
@@ -21,10 +21,10 @@ function saveSettings() {
   syncSubscription();
 }
 const t = (k) => STRINGS[settings.lang][k] ?? STRINGS.da[k] ?? k;
-const SHARED_KEYS = ['chains', 'extraChains', 'mode', 'words', 'lang', 'allergens', 'vulnerable'];
+const SHARED_KEYS = ['chains', 'extraChains', 'mode', 'words', 'lang', 'allergens', 'vulnerable', 'quiet'];
 const serverSettings = () => ({
   chains: settings.chains, mode: settings.mode, words: settings.words, lang: settings.lang,
-  allergens: settings.allergens, vulnerable: settings.vulnerable,
+  allergens: settings.allergens, vulnerable: settings.vulnerable, quiet: settings.quiet,
 });
 
 // Settings travel in a link: #/import/<base64url JSON>. Nothing goes to a server.
@@ -44,6 +44,7 @@ function decodeSettings(code) {
   out.mode = obj.mode === 'mine' ? 'mine' : 'all';
   out.lang = obj.lang === 'en' ? 'en' : 'da';
   out.vulnerable = obj.vulnerable === true;
+  out.quiet = strList(obj.quiet).filter((l) => LEVELS.includes(l));
   return out;
 }
 
@@ -297,6 +298,10 @@ async function viewRecall(id) {
         } }, showOriginal.has(r.id) ? 'Show English' : 'Show original')) : null,
       settings.lang === 'en' && !r.en ? h('p', { class: 'muted small' }, 'English translation not ready yet – showing the Danish notice.') : null,
       sevBadge(s),
+      s.severity.quote ? h('blockquote', { class: 'authority' },
+        h('span', { class: 'small muted' }, settings.lang === 'en' ? 'Fødevarestyrelsen (in Danish): ' : 'Fødevarestyrelsen: '),
+        `“${s.severity.quote}”`) : h('p', { class: 'muted small' }, t('noRiskStatement')),
+      s.severity.vulnerableMentioned ? h('p', { class: `small${settings.vulnerable ? ' sev-personal' : ''}` }, `⚠ ${vulnerableText(settings.lang)}`) : null,
       h('div', { class: 'summary' },
         h('p', { class: 'store' }, s.store),
         h('p', { class: 'reason big' }, s.reason),
@@ -434,6 +439,16 @@ async function viewSettings() {
         h('input', { type: 'checkbox', checked: settings.vulnerable, onchange: (e) => { settings.vulnerable = e.target.checked; saveSettings(); } }),
         t('vulnerable')),
       h('p', { class: 'muted small' }, t('vulnerableHelp'))),
+
+    h('section', { class: 'panel' },
+      h('h2', {}, t('quietTitle')),
+      h('p', { class: 'muted small' }, t('quietHelp')),
+      ...LEVELS.filter((l) => l !== 'unstated').map((l) => h('label', { class: 'radio' },
+        h('input', { type: 'checkbox', checked: settings.quiet.includes(l), onchange: (e) => {
+          settings.quiet = e.target.checked ? [...new Set([...settings.quiet, l])] : settings.quiet.filter((x) => x !== l);
+          saveSettings();
+        } }),
+        h('span', {}, h('span', { class: `sev-${l}`, 'aria-hidden': 'true' }, `${LEVEL_LABELS[l].icon} `), LEVEL_LABELS[l][settings.lang])))),
 
     h('section', { class: 'panel' },
       h('h2', {}, t('words')),

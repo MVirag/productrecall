@@ -12,12 +12,12 @@ can check whether you have it at home.
 - **Settings**: your store chains, notify about *all recalls* (default) or
   *only my stores*, optional watch words ("mælk" also finds "letmælk"), Danish
   or English.
-- **Severity** on every recall: 🔴 acute (don't eat it), 🟠 allergy,
-  🟡 long-term risk, ⚪ unfit to eat. Acute ones notify with sound; the others
-  arrive silently unless they concern your household.
+- **Risk category** on every recall, taken from Fødevarestyrelsen's own
+  wording and shown with the quoted sentence (see below). Every recall makes
+  a sound by default; you can choose categories to receive silently.
 - **Household profile**: allergies (the 14 EU allergens) and "pregnant, small
-  children or weak immune system". An allergen recall for your household is
-  urgent and notifies even in "only my stores" mode.
+  children or weak immune system". An allergen recall for your household
+  always sounds and notifies even in "only my stores" mode.
 - **Sharing**: share a recall to WhatsApp/SMS etc., and share your settings
   as a link a partner can open to get the same stores, words and household.
 - **English**: each recall's full text is machine-translated (Cloudflare
@@ -178,18 +178,32 @@ subscriptions: turn notifications off and on again in the app.
 | `POST /api/replay` | `{endpoint, id}` – send a past recall to that device |
 | `POST /api/admin/poll` | Run the poll now (`Authorization: Bearer ADMIN_TOKEN`) |
 
-## Severity levels
+## Risk categories (from Fødevarestyrelsen's own wording)
 
-| Level | Reasons | Notification |
+The app does not rate risk itself. It looks for the sentence in the notice
+where Fødevarestyrelsen states the risk, files the recall under that
+statement, and shows the sentence as a quote on the detail page.
+
+| Category | When the notice says… | Example wording |
 |---|---|---|
-| 🔴 Acute | Listeria, salmonella, E. coli, other bacteria/virus, botulism, foreign bodies (metal, glass, plastic), histamine | Sound |
-| 🟠 Allergy | Undeclared allergen | Sound if it's a household allergen, otherwise silent |
-| 🟡 Long-term | Mycotoxins, pesticides, chemical residues, prohibited cattle material | Silent |
-| ⚪ Unfit to eat | Insects, mould, spoilage | Silent |
-| 🔴 Unknown | Reason not recognised | Sound (never silenced by mistake) |
+| ● Kan gøre dig syg | infection, symptoms, illness or injury | *"risiko for smitte med Salmonella"*, *"sygdomsfremkaldende prioner"* |
+| ▲ Farlig ved allergi | risk of an allergic reaction | *"risiko for … en allergisk reaktion"* |
+| ◆ Sundhedsrisiko kan ikke udelukkes | that phrase, and nothing on acuteness | *"kan en sundhedsmæssig risiko ikke udelukkes"* |
+| ◆ Ikke akut | no acute effect or symptoms | *"ikke tale om en akut sundhedsmæssig påvirkning"* |
+| ○ Uegnet som fødevare | the product is unfit as food | *"gør produktet uegnet som fødevare"* |
+| ■ Risiko ikke angivet | none of the above | – |
 
-With "pregnant, small children or weak immune system" switched on, listeria,
-salmonella, E. coli and botulism are marked extra serious.
+- Rules are checked in that order against the reason section first, then the
+  lead and advice. Stock sentences found on many notices ("Hvis du oplever
+  symptomer…") are ignored.
+- All 17 saved notices are classified by a sentence; the tests pin each one.
+- **Every recall notifies with sound by default.** Users can choose
+  categories to receive silently (Settings → *Stille notifikationer*). A recall
+  with one of the household's allergens always makes a sound.
+- "Opslaget nævner gravide eller andre særligt udsatte" is shown only when the
+  notice itself mentions them.
+- Unusual wording falls back to "Risiko ikke angivet", which is never silent
+  unless the user mutes it explicitly.
 
 ## Translation
 
@@ -229,8 +243,8 @@ kept as written.
 - Translations are machine-made and can be wrong; the "Show original" button
   shows the Danish text. Workers AI has a free daily allowance that this
   volume (~10 recalls a month) stays far below, but this wasn't measured.
-- Severity is derived from the parsed reason; an unusual wording may be
-  classified as "unknown" (always loud) rather than its real level.
+- Risk categories rely on matching Fødevarestyrelsen's wording; unusual
+  wording lands in "Risiko ikke angivet" rather than a wrong category.
 - Android Chrome only. Out of scope: iOS, Play Store/TWA, non-food recalls,
   EU Safety Gate, barcode scanning, receipts.
 - The app's interpretation can be wrong; the official notice applies.
