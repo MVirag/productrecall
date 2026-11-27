@@ -1,0 +1,20 @@
+{
+  "name": "tilbagekald-alert",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PWA that push-notifies Danish food recalls from Fødevarestyrelsen",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.js",
+    "icons": "node scripts/make-icons.mjs",
+    "fixtures": "node scripts/fetch-fixtures.mjs"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^2.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.168.0"
+  }
+}
