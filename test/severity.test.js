@@ -95,3 +95,12 @@ test('notification shows the category label from the notice', () => {
   assert.match(en.body, /^Not acute · /);
   assert.equal(en.silent, true);
 });
+
+test('coversAllergen: wheat counts as gluten, other names match exactly', async () => {
+  const { coversAllergen } = await import('../public/shared/severity.js');
+  assert.equal(coversAllergen('hvede', ['gluten']), true);
+  assert.equal(coversAllergen('gluten', ['gluten']), true);
+  assert.equal(coversAllergen('mælk', ['gluten']), false);
+  assert.equal(coversAllergen('mælk', []), false);
+  assert.equal(coversAllergen('mælk', ['mælk', 'æg']), true);
+});

@@ -1,10 +1,10 @@
 // Service worker: app-shell cache, offline recall list, push notifications.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `shell-${VERSION}`;
 const DATA = 'data';
 const SHELL_FILES = [
   '/', '/index.html', '/app.js', '/i18n.js', '/styles.css', '/manifest.webmanifest',
-  '/shared/chains.js', '/shared/words.js', '/shared/summary.js', '/shared/severity.js',
+  '/icons.js', '/shared/chains.js', '/shared/words.js', '/shared/summary.js', '/shared/severity.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/badge-96.png',
 ];
 

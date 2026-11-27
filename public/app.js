@@ -1,7 +1,8 @@
 import { STRINGS } from './i18n.js';
 import { DEFAULT_CHAINS } from './shared/chains.js';
 import { summarize, decide } from './shared/summary.js';
-import { ALLERGENS, ALLERGEN_LABELS, LEVEL_LABELS, LEVELS, vulnerableText } from './shared/severity.js';
+import { ALLERGENS, ALLERGEN_LABELS, LEVEL_LABELS, LEVELS, vulnerableText, coversAllergen } from './shared/severity.js';
+import { icon } from './icons.js';
 
 // ------------------------------------------------------------ settings (on device)
 
@@ -159,34 +160,65 @@ function setTitle(text) {
   document.title = text ? `${text} · ${t('appName')}` : t('appName');
 }
 
-function sevBadge(s) {
+// Severity: shape icon + words, coloured by level. `variant` is 'strip' (feed card) or 'banner' (detail).
+function sevBadge(s, variant = 'strip') {
   const lvl = s.severity.level;
-  return h('p', { class: `sev sev-${lvl}${s.severity.personal ? ' sev-personal' : ''}` },
-    h('span', { 'aria-hidden': 'true', class: 'sev-icon' }, LEVEL_LABELS[lvl].icon), ' ', s.severityText);
+  return h('p', { class: `sev sev-${lvl} sev-${variant}` }, icon(lvl, { md: true }), h('span', {}, s.severityText));
 }
 
 function badgeFor(s, d) {
-  if (s.mine) return h('span', { class: 'badge badge-mine' }, `★ ${t('yourStore')}${s.viaGroup ? ` (${t('viaGroup')})` : ''}`);
-  if (d.words.length) return h('span', { class: 'badge badge-mine' }, `★ ${t('watchHit')}: ${d.words.join(', ')}`);
+  const mine = (text) => h('span', { class: 'badge badge-mine' }, icon('target'), text);
+  if (s.mine) return mine(`${t('yourStore')}${s.viaGroup ? ` (${t('viaGroup')})` : ''}`);
+  if (d.words.length) return mine(`${t('watchHit')}: ${d.words.join(', ')}`);
   if (s.nationwide) return h('span', { class: 'badge' }, t('nationwide'));
   return null;
+}
+
+const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+
+// What the recall is about, as tags coloured by the recall's level.
+// One tag per undeclared allergen; an allergen in the household profile is filled.
+function reasonTags(r, s) {
+  const lvl = `sev-${s.severity.level}`;
+  const al = r.reason?.category === 'allergen' ? r.reason.allergens || [] : [];
+  if (!al.length) return h('p', { class: 'card-reasons' }, h('span', { class: `tag ${lvl}` }, s.reason));
+  return h('p', { class: 'card-reasons' }, al.map((a) => {
+    const hit = coversAllergen(a, settings.allergens);
+    return h('span', { class: `tag ${lvl}${hit ? ' tag-solid' : ''}` }, hit ? icon('target') : null, ALLERGEN_LABELS[a]?.[settings.lang] || cap(a));
+  }));
+}
+
+// The feed asks for a small copy of the photo; if it will not load, the card simply has no photo.
+function thumbSrc(url) {
+  try {
+    const u = new URL(url);
+    if (u.searchParams.has('width')) u.searchParams.set('width', '160');
+    return u.toString();
+  } catch { return url; }
 }
 
 function card(r) {
   const s = summarize(r, settings, settings.lang);
   const d = decide(r, settings);
-  const highlight = d.highlight;
-  return h('li', {},
-    h('a', { class: `card${highlight ? ' card-mine' : ''}`, href: `#/recall/${encodeURIComponent(r.id)}` },
-      h('div', { class: 'card-top' },
-        h('span', { class: 'store' }, s.store),
-        h('time', { datetime: r.published }, fmtDate(r.published))),
-      badgeFor(s, d),
-      sevBadge(s),
+  const main = h('div', { class: `card-main${r.image ? ' has-photo' : ''}` },
+    r.image ? h('img', {
+      class: 'thumb', src: thumbSrc(r.image), alt: '', width: 72, height: 72, loading: 'lazy', referrerpolicy: 'no-referrer',
+      onerror: (e) => { e.target.parentElement.classList.remove('has-photo'); e.target.remove(); },
+    }) : null,
+    h('div', { class: 'card-text' },
       h('h2', { class: 'product' }, s.product),
-      h('p', { class: 'facts' }, [s.size, s.dates].filter(Boolean).join(' · ')),
-      h('p', { class: 'why' }, h('span', { class: 'reason' }, s.reason), ' · ', h('span', { class: 'action' }, s.action)),
-    ));
+      reasonTags(r, s),
+      [s.size, s.dates].filter(Boolean).length ? h('p', { class: 'facts-line' }, [s.size, s.dates].filter(Boolean).join(' · ') ) : null));
+  return h('li', {},
+    h('a', { class: `card${d.highlight ? ' card-mine' : ''}`, href: `#/recall/${encodeURIComponent(r.id)}` },
+      sevBadge(s, 'strip'),
+      h('div', { class: 'card-body' },
+        main,
+        h('p', { class: 'card-action' }, icon('done'), s.action),
+        badgeFor(s, d) ? h('div', { class: 'card-tags' }, badgeFor(s, d)) : null,
+        h('div', { class: 'card-meta' },
+          h('span', { class: 'store' }, s.store),
+          h('time', { datetime: r.published }, fmtDate(r.published))))));
 }
 
 async function viewFeed() {
@@ -254,6 +286,13 @@ function checker(r) {
     out);
 }
 
+function factRow(iconName, title, label) {
+  const ic = icon(iconName, { md: true });
+  ic.classList.add('fact-icon');
+  return h('li', { class: 'fact' }, ic,
+    h('div', { class: 'fact-text' }, h('p', { class: 'fact-title' }, title), h('p', { class: 'muted small' }, label)));
+}
+
 async function viewRecall(id) {
   const m = main();
   m.replaceChildren(h('p', { class: 'muted', role: 'status' }, t('loading')));
@@ -286,6 +325,12 @@ async function viewRecall(id) {
   m.replaceChildren(
     h('a', { href: '#/', class: 'back' }, `← ${t('back')}`),
     h('article', { class: 'detail' },
+      sevBadge(s, 'banner'),
+      s.severity.quote ? h('blockquote', { class: 'authority' },
+        h('span', { class: 'small muted' }, settings.lang === 'en' ? 'Fødevarestyrelsen (in Danish): ' : 'Fødevarestyrelsen: '),
+        `“${s.severity.quote}”`) : h('p', { class: 'muted small' }, t('noRiskStatement')),
+      s.severity.vulnerableMentioned ? h('p', { class: `small${settings.vulnerable ? ' badge badge-mine' : ' muted'}` }, vulnerableText(settings.lang)) : null,
+      r.image ? h('img', { src: r.image, alt: `${t('productImage')}: ${s.product}`, class: 'hero-photo', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
       badgeFor(s, d),
       h('h1', {}, tx.title),
       h('p', { class: 'muted small' },
@@ -297,16 +342,10 @@ async function viewRecall(id) {
           viewRecall(r.id);
         } }, showOriginal.has(r.id) ? 'Show English' : 'Show original')) : null,
       settings.lang === 'en' && !r.en ? h('p', { class: 'muted small' }, 'English translation not ready yet – showing the Danish notice.') : null,
-      sevBadge(s),
-      s.severity.quote ? h('blockquote', { class: 'authority' },
-        h('span', { class: 'small muted' }, settings.lang === 'en' ? 'Fødevarestyrelsen (in Danish): ' : 'Fødevarestyrelsen: '),
-        `“${s.severity.quote}”`) : h('p', { class: 'muted small' }, t('noRiskStatement')),
-      s.severity.vulnerableMentioned ? h('p', { class: `small${settings.vulnerable ? ' sev-personal' : ''}` }, `⚠ ${vulnerableText(settings.lang)}`) : null,
-      h('div', { class: 'summary' },
-        h('p', { class: 'store' }, s.store),
-        h('p', { class: 'reason big' }, s.reason),
-        h('p', { class: 'action big' }, s.action)),
-      r.image ? h('img', { src: r.image, alt: `${t('productImage')}: ${s.product}`, class: 'product-img', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
+      h('ul', { class: 'facts' },
+        factRow('done', s.action, t('whatToDo')),
+        factRow('tag', s.reason, t('why')),
+        factRow('pin', s.store, t('whereSold'))),
       h('div', { class: 'row' },
         h('button', { type: 'button', class: 'btn', onclick: () => share({ title: s.product, text: shareText, url: recallUrl }, shareMsg) }, `${t('share')} ↗`)),
       shareMsg,
@@ -448,7 +487,7 @@ async function viewSettings() {
           settings.quiet = e.target.checked ? [...new Set([...settings.quiet, l])] : settings.quiet.filter((x) => x !== l);
           saveSettings();
         } }),
-        h('span', {}, h('span', { class: `sev-${l}`, 'aria-hidden': 'true' }, `${LEVEL_LABELS[l].icon} `), LEVEL_LABELS[l][settings.lang])))),
+        h('span', { class: 'row-label' }, h('span', { class: `sev-ic sev-${l}` }, icon(l)), ' ', LEVEL_LABELS[l][settings.lang])))),
 
     h('section', { class: 'panel' },
       h('h2', {}, t('words')),
