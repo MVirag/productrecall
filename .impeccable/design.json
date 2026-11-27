@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-27T00:00:00Z",
+  "title": "Design System: Tilbagekald Alert",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "primary", "displayName": "Ink", "canonical": "#10201a", "dark": "#e9f1ec", "tonalRamp": ["#10201a", "#26382f", "#3d5147", "#5b6b62", "#8fa399", "#b9c8bf", "#d9e4de", "#e9f1ec"] },
+      "brand": { "role": "primary", "displayName": "Brand Ink", "canonical": "#10201a", "dark": "#e9f1ec", "tonalRamp": ["#10201a", "#26382f", "#3d5147", "#5b6b62", "#8fa399", "#b9c8bf", "#d9e4de", "#e9f1ec"] },
+      "bar": { "role": "secondary", "displayName": "Graphite-Green Bar", "canonical": "#103a2e", "dark": "#14382c", "tonalRamp": ["#0a251d", "#103a2e", "#1c5240", "#2a6352", "#3a735f", "#6d9a89", "#a9c6ba", "#f2f8f4"] },
+      "bg": { "role": "neutral", "displayName": "Mint Ground", "canonical": "#e6eee9", "dark": "#0e1411", "tonalRamp": ["#0e1411", "#17201b", "#212c26", "#2f3d35", "#c3d1c9", "#d9e4de", "#e6eee9", "#ffffff"] },
+      "surface": { "role": "neutral", "displayName": "Sticker White", "canonical": "#ffffff", "dark": "#17201b" },
+      "surface-sunken": { "role": "neutral", "displayName": "Sunken Mint", "canonical": "#d9e4de", "dark": "#212c26" },
+      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "#c3d1c9", "dark": "#2f3d35" },
+      "border-control": { "role": "neutral", "displayName": "Control Edge", "canonical": "#5b6b62", "dark": "#8fa399" },
+      "ink-muted": { "role": "neutral", "displayName": "Muted Ink", "canonical": "#46564d", "dark": "#a9bab0" },
+      "frame": { "role": "neutral", "displayName": "Frame", "canonical": "#10201a", "dark": "#9fb5a9" },
+      "focus": { "role": "neutral", "displayName": "Focus Blue", "canonical": "#1a5fb4", "dark": "#8ab4ff" },
+      "health": { "role": "tertiary", "displayName": "Health Red (text)", "canonical": "#b01a2c", "dark": "#ff8f9c" },
+      "health-fill": { "role": "tertiary", "displayName": "Health Red (badge)", "canonical": "#d7263d", "dark": "#ff7a88", "tonalRamp": ["#5a0a14", "#8a1222", "#b01a2c", "#d7263d", "#ee6a7a", "#f6ccd2", "#fad7dc", "#fde7ea"] },
+      "health-tint": { "role": "tertiary", "displayName": "Health Tint", "canonical": "#fde7ea", "dark": "#3b1219" },
+      "allergy": { "role": "tertiary", "displayName": "Allergy Orange (text)", "canonical": "#8a4300", "dark": "#ffb877" },
+      "allergy-fill": { "role": "tertiary", "displayName": "Allergy Orange (badge)", "canonical": "#e8870e", "dark": "#ffb15c", "tonalRamp": ["#4a2400", "#6b3600", "#8a4300", "#c26f06", "#e8870e", "#f3b366", "#ffd9a8", "#ffefd9"] },
+      "allergy-tint": { "role": "tertiary", "displayName": "Allergy Tint", "canonical": "#ffefd9", "dark": "#3a2208" },
+      "notacute": { "role": "tertiary", "displayName": "Not-Acute Blue (text)", "canonical": "#1d4aa0", "dark": "#a9c1ff" },
+      "notacute-fill": { "role": "tertiary", "displayName": "Not-Acute Blue (badge)", "canonical": "#2f5fb3", "dark": "#7ea6ff" },
+      "notacute-tint": { "role": "tertiary", "displayName": "Not-Acute Tint", "canonical": "#e3ebfa", "dark": "#17264a" },
+      "unfit": { "role": "tertiary", "displayName": "Unfit Gray-Green (text)", "canonical": "#3f4a44", "dark": "#c2cec7" },
+      "unfit-fill": { "role": "tertiary", "displayName": "Unfit Gray-Green (badge)", "canonical": "#5f6b65", "dark": "#aab9b0" },
+      "unfit-tint": { "role": "tertiary", "displayName": "Unfit Tint", "canonical": "#e1e8e4", "dark": "#26302b" },
+      "ok": { "role": "tertiary", "displayName": "Pack-Check Clear", "canonical": "#1b6b43", "dark": "#7fd99a" },
+      "ok-tint": { "role": "tertiary", "displayName": "Clear Tint", "canonical": "#dff1e6", "dark": "#12301c" }
+    },
+    "darkOnlyOverrides": {
+      "on-brand": "#0e1411",
+      "on-health": "#2a0509",
+      "on-allergy": "#2b1700",
+      "on-notacute": "#0a1a3d",
+      "on-unfit": "#101a15",
+      "brand-hover": "#ffffff",
+      "brand-active": "#cfdcd4",
+      "bar-hover": "#2c624f",
+      "bar-active": "#3d7863",
+      "focus-on-bar": "#8ab4ff",
+      "health-tint-hover": "#4a1a22",
+      "health-tint-active": "#572129"
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "h1: page and detail title." },
+      "product": { "displayName": "Product", "purpose": "Product name on a sticker." },
+      "heading": { "displayName": "Heading", "purpose": "h2 and the detail sticker verdict." },
+      "body": { "displayName": "Body", "purpose": "Default text." },
+      "verdict": { "displayName": "Verdict", "purpose": "The level's words, sentence case, level text colour." },
+      "meta": { "displayName": "Meta", "purpose": "Facts line, reasons, tags, footer, dates (tabular numerals)." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "press-sink", "value": "translateY(1px)", "purpose": "Pressed buttons sink one pixel; no timed transitions are declared." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "480px" },
+      { "name": "column", "value": "42rem (main max-width)" }
+    ],
+    "levelMap": [
+      { "level": "health", "shape": "octagon + !", "disc": "health-fill", "glyph": "on-health", "text": "health", "tint": "health-tint" },
+      { "level": "allergy", "shape": "triangle + !", "disc": "allergy-fill", "glyph": "on-allergy", "text": "allergy", "tint": "allergy-tint" },
+      { "level": "possible", "shape": "hexagon + !", "disc": "allergy-fill", "glyph": "on-allergy", "text": "allergy", "tint": "allergy-tint" },
+      { "level": "notacute", "shape": "diamond + clock", "disc": "notacute-tint", "glyph": "notacute", "text": "notacute", "tint": "notacute-tint" },
+      { "level": "unfit", "shape": "circle + dash", "disc": "unfit-tint", "glyph": "unfit", "text": "unfit", "tint": "unfit-tint" },
+      { "level": "unstated", "shape": "rounded square + ?", "disc": "surface", "glyph": "ink", "text": "ink", "tint": "surface-sunken" }
+    ],
+    "forcedColors": "tags, badges and die: 2px CanvasText border; card, sticker, checker: CanvasText border; card-mine: Highlight; current nav pill: 2px Highlight outline; selected chip: Highlight border and outline; thumbnails forced-color-adjust none; checked controls Highlight/HighlightText."
+  },
+  "components": [
+    {
+      "name": "Sticker (health)",
+      "kind": "card",
+      "refersTo": "sticker-health",
+      "description": "Feed card for a health-level recall: red 5px frame, red tint, octagon badge.",
+      "html": "<a class=\"ds-sticker\" href=\"#\"><span class=\"ds-die\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86Z\"/><path d=\"M12 8v4M12 16h.01\"/></svg></span><span class=\"ds-body\"><p class=\"ds-verdict\">Helbredsfare</p><p class=\"ds-product\">Eksempel pølser</p><p class=\"ds-meta\">Salmonella</p></span></a>",
+      "css": ".ds-sticker{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;align-items:start;padding:9px 13px 9px 9px;border:5px solid #d7263d;border-radius:14px;background:#fde7ea;color:#10201a;text-decoration:none;font:400 1.0625rem/1.5625rem system-ui,sans-serif}.ds-sticker:hover{background:#fad7dc}.ds-sticker:active{background:#f6ccd2}.ds-sticker:focus-visible{outline:3px solid #1a5fb4;outline-offset:2px}.ds-die{display:grid;place-items:center;width:56px;height:56px;border:3px solid #10201a;border-radius:50%;background:#d7263d;color:#fff}.ds-icon{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.ds-body p{margin:0}.ds-verdict{font-weight:800;font-size:1.0625rem;line-height:1.375rem;color:#b01a2c}.ds-product{font-weight:700;font-size:1.1875rem;line-height:1.5625rem}.ds-meta{font-size:.9375rem;line-height:1.3125rem;color:#46564d}"
+    },
+    {
+      "name": "Sticker (allergy, personal double frame)",
+      "kind": "card",
+      "refersTo": "sticker",
+      "description": "Standard sticker: white ground, ink frame; double frame when the recall concerns the household.",
+      "html": "<a class=\"ds-sticker-mine\" href=\"#\"><span class=\"ds-die2\"><svg class=\"ds-icon2\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z\"/><path d=\"M12 9v4M12 17h.01\"/></svg></span><span><p class=\"ds-v2\">Allergifare</p><p class=\"ds-p2\">Eksempel kiks</p></span></a>",
+      "css": ".ds-sticker-mine{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;align-items:start;padding:9px 13px 9px 9px;border:5px double #10201a;border-radius:14px;background:#fff;color:#10201a;text-decoration:none;font:400 1.0625rem/1.5625rem system-ui,sans-serif}.ds-sticker-mine:hover{background:#d9e4de}.ds-sticker-mine:active{background:#c3d1c9}.ds-sticker-mine:focus-visible{outline:3px solid #1a5fb4;outline-offset:2px}.ds-die2{display:grid;place-items:center;width:56px;height:56px;border:3px solid #10201a;border-radius:50%;background:#e8870e;color:#10201a}.ds-icon2{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.ds-sticker-mine p{margin:0}.ds-v2{font-weight:800;font-size:1.0625rem;line-height:1.375rem;color:#8a4300}.ds-p2{font-weight:700;font-size:1.1875rem;line-height:1.5625rem}"
+    },
+    {
+      "name": "Nav pills",
+      "kind": "nav",
+      "refersTo": "nav-pill",
+      "description": "App bar navigation: current is a solid slab, hover and pressed are fills, no underlines.",
+      "html": "<div class=\"ds-bar\"><a class=\"ds-nav ds-current\" href=\"#\" aria-current=\"page\">Seneste</a><a class=\"ds-nav\" href=\"#\">Indstillinger</a></div>",
+      "css": ".ds-bar{display:flex;gap:4px;padding:4px 16px;background:#103a2e;color:#f2f8f4;font:700 1.0625rem system-ui,sans-serif}.ds-nav{display:inline-flex;align-items:center;min-height:36px;margin-block:8px;padding:0 16px;border-radius:999px;color:inherit;text-decoration:none}.ds-nav:hover{background:#2a6352}.ds-nav:active{background:#3a735f}.ds-nav:focus-visible{outline:3px solid #fff;outline-offset:2px}.ds-current,.ds-current:hover,.ds-current:active{background:#f2f8f4;color:#103a2e}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink slab, 48px, presses 1px.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Gem</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:8px 16px;font:700 1.0625rem system-ui,sans-serif;border:2px solid #10201a;border-radius:12px;background:#fff;color:#10201a;cursor:pointer}.ds-btn-primary{background:#10201a;color:#fff}.ds-btn-primary:hover{background:#26382f;border-color:#26382f}.ds-btn-primary:active{background:#3d5147;border-color:#3d5147;transform:translateY(1px)}.ds-btn:focus-visible{outline:3px solid #1a5fb4;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "White slab with ink edge; hover sinks to sunken mint, pressed to hairline.",
+      "html": "<button class=\"ds-btn2\">Del</button>",
+      "css": ".ds-btn2{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:8px 16px;font:700 1.0625rem system-ui,sans-serif;border:2px solid #10201a;border-radius:12px;background:#fff;color:#10201a;cursor:pointer}.ds-btn2:hover{background:#d9e4de}.ds-btn2:active{background:#c3d1c9;transform:translateY(1px)}.ds-btn2:focus-visible{outline:3px solid #1a5fb4;outline-offset:2px}"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "36px pill; selected is ink with a check mark. 48px hit area.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"false\">Netto</button> <button class=\"ds-chip\" aria-pressed=\"true\">Føtex</button>",
+      "css": ".ds-chip{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;font:400 1.0625rem system-ui,sans-serif;border:2px solid #5b6b62;border-radius:999px;background:#fff;color:#10201a;cursor:pointer}.ds-chip::before{content:\"\";position:absolute;inset:-6px -2px}.ds-chip:hover{border-color:#10201a;background:#d9e4de}.ds-chip:active{background:#c3d1c9}.ds-chip[aria-pressed=true]{background:#10201a;border-color:#10201a;color:#fff;font-weight:700}.ds-chip[aria-pressed=true]::after{content:\"\";order:-1;width:14px;height:11px;background:currentColor;clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0,43% 62%)}.ds-chip:focus-visible{outline:3px solid #1a5fb4;outline-offset:2px}"
+    },
+    {
+      "name": "Tags and relevance seal",
+      "kind": "custom",
+      "refersTo": "badge-mine",
+      "description": "Reason tag in the level colour, solid tag for a household allergen, black relevance seal.",
+      "html": "<span class=\"ds-tag\">mælk</span> <span class=\"ds-tag ds-solid\">gluten</span> <span class=\"ds-seal\">Din butik</span>",
+      "css": ".ds-tag{display:inline-flex;align-items:center;padding:1px 8px;background:#ffefd9;color:#8a4300;border-radius:6px;font:700 .9375rem system-ui,sans-serif}.ds-solid{background:#e8870e;color:#10201a}.ds-seal{display:inline-flex;align-items:center;padding:2px 8px;background:#10201a;color:#fff;border-radius:999px;font:700 .9375rem system-ui,sans-serif}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "48px field with a 2px control edge.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Stregkode\">",
+      "css": ".ds-input{font:inherit;font-size:1.0625rem;width:100%;min-height:48px;padding:8px 12px;border:2px solid #5b6b62;border-radius:12px;background:#fff;color:#10201a;caret-color:#10201a}.ds-input:focus-visible{outline:3px solid #1a5fb4;outline-offset:2px}"
+    },
+    {
+      "name": "Checker sticker",
+      "kind": "custom",
+      "refersTo": "checker",
+      "description": "The Har jeg den? box: white sticker with a 2px ink frame.",
+      "html": "<section class=\"ds-checker\"><h2>Har jeg den?</h2><p class=\"ds-res\">Pas på: samme produkt.</p></section>",
+      "css": ".ds-checker{padding:8px 16px 16px;background:#fff;border:2px solid #10201a;border-radius:14px;color:#10201a;font:400 1.0625rem/1.5625rem system-ui,sans-serif}.ds-checker h2{margin:8px 0 0;font-size:1.125rem;line-height:1.5rem}.ds-res{margin:12px 0 0;font-weight:700;color:#b01a2c}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Door Sticker",
+    "overview": "Every recall is a food-inspection door sticker, the severity scale a Dane already reads at a glance. The level lives in one object: a die-cut round badge holding its own shape, set in a framed white sticker on a mint-tinted ground. A graphite-green bar holds two pill nav items. Ink is the only brand fill; there is no brand hue to compete with a warning. The system is flat: depth comes from frames and tonal steps, never from shadows.",
+    "keyCharacteristics": [
+      "One 56px die-cut badge per level, shape plus colour, never colour alone.",
+      "Thick ink frame (2px) on every sticker; the health sticker takes a 5px red frame and a red tint ground.",
+      "Ink is the only brand fill: primary button, selected chip, relevance seal.",
+      "Flat slabs for controls with an ink edge; pressed sinks 1px.",
+      "Light and dark both mint-tinted, never plain gray."
+    ],
+    "rules": [
+      { "name": "The Red Is Health Rule", "body": "Red appears only for the health level: its badge, frame, tint, and the bad pack-check result. It is never brand, hover, selection, or decoration.", "section": "colors" },
+      { "name": "The Ink Is The Brand Rule", "body": "The only brand fill is ink. Primary button, selected chip and relevance seal are ink; there is no brand hue.", "section": "colors" },
+      { "name": "The Shape Beside The Colour Rule", "body": "Every level has its own shape inside the badge; colour is never the only signal.", "section": "colors" },
+      { "name": "The Relevance Is Black Rule", "body": "This concerns you is a black ink seal and a double frame; it never recolours the severity.", "section": "colors" },
+      { "name": "The Tokens Only Rule", "body": "Font sizes come from --fs-* / --lh-* in rem; no literal sizes. Dates and dd use tabular numerals.", "section": "typography" },
+      { "name": "The Sentence-Case Verdict Rule", "body": "The verdict is sentence case at weight 800; there are no uppercase kickers or eyebrows.", "section": "typography" },
+      { "name": "The Flat Slab Rule", "body": "Controls are flat slabs with an ink edge. Hover tints, pressed sinks, focus is the blue ring. No shadows, no gradients.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do give every level its own badge shape and keep the verdict in sentence case.",
+      "Do keep text at 4.5:1 and control edges, focus rings and badge glyphs at 3:1 in both themes; test/contrast.test.js reads the tokens from styles.css. Add a pair there when you add a colour token.",
+      "Do keep voice short and plain: Danish first, English second, imperative.",
+      "Do keep buttons, inputs and nav targets at 48px; chips 36px with a 48px hit area, 12px between rows.",
+      "Do gate hover with @media (hover: hover) and style :active for all input methods.",
+      "Do show relevance with the black seal and double frame."
+    ],
+    "donts": [
+      "Don't use red for anything but the health level: not hover, selection or brand.",
+      "Don't use colour as the only signal of a level.",
+      "Don't add shadows, gradients or underlines on nav.",
+      "Don't introduce a brand hue; ink is the only brand fill.",
+      "Don't write font sizes as literals.",
+      "Don't let the pack check read \"no match\" as safe on health, allergy, possible or unstated."
+    ]
+  }
+}
