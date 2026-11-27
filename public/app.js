@@ -77,7 +77,8 @@ function h(tag, attrs = {}, ...children) {
   return el;
 }
 
-const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(settings.lang === 'en' ? 'en-GB' : 'da-DK', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+// One date format everywhere: dd.mm.yyyy, as printed on Danish packs and notices (both languages).
+const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('da-DK', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Copenhagen' }) : '');
 const fmtTime = (iso) => (iso ? new Date(iso).toLocaleString(settings.lang === 'en' ? 'en-GB' : 'da-DK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : t('never'));
 const fmtDay = (d) => d.iso.split('-').reverse().join('.');
 
