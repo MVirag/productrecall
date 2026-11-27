@@ -4,18 +4,19 @@ import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 import fs from 'node:fs';
 
-const RED = '#b3261e';
-// Warning triangle with "!".
+const SLATE = '#2e343b';
+// Bell, drawn with the same paths as the app bar mark (24px grid, 2px round stroke).
 const glyph = (fg) => `
-  <path d="M256 92 L436 404 H76 Z" fill="none" stroke="${fg}" stroke-width="34" stroke-linejoin="round"/>
-  <rect x="236" y="190" width="40" height="122" rx="18" fill="${fg}"/>
-  <circle cx="256" cy="352" r="22" fill="${fg}"/>`;
+  <g transform="translate(61 61) scale(16.25)" fill="none" stroke="${fg}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.268 21a2 2 0 0 0 3.464 0"/>
+    <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>
+  </g>`;
 
 const icons = {
-  'icon-192.png': { size: 192, svg: `<rect width="512" height="512" rx="112" fill="${RED}"/>${glyph('#fff')}` },
-  'icon-512.png': { size: 512, svg: `<rect width="512" height="512" rx="112" fill="${RED}"/>${glyph('#fff')}` },
+  'icon-192.png': { size: 192, svg: `<rect width="512" height="512" rx="112" fill="${SLATE}"/>${glyph('#fff')}` },
+  'icon-512.png': { size: 512, svg: `<rect width="512" height="512" rx="112" fill="${SLATE}"/>${glyph('#fff')}` },
   // Maskable: full bleed, glyph inside the 80% safe zone.
-  'maskable-512.png': { size: 512, svg: `<rect width="512" height="512" fill="${RED}"/><g transform="translate(256 262) scale(.72) translate(-256 -256)">${glyph('#fff')}</g>` },
+  'maskable-512.png': { size: 512, svg: `<rect width="512" height="512" fill="${SLATE}"/><g transform="translate(256 262) scale(.72) translate(-256 -256)">${glyph('#fff')}</g>` },
   // Android status-bar badge: white on transparent (only alpha is used).
   'badge-96.png': { size: 96, svg: glyph('#fff'), transparent: true },
 };
