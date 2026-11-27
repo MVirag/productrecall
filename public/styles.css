@@ -13,6 +13,10 @@
   --bad: #b3261e;
   --focus: #1a5fb4;
   --radius: 12px;
+  --acute: #a50e0e;     /* 7.9:1 on white, 7.2:1 on --mine-bg */
+  --allergy: #9a4a00;   /* 6.3:1 / 5.7:1 */
+  --longterm: #6b5800;  /* 7.0:1 / 6.3:1 */
+  --quality: #4f4f4f;   /* 8.2:1 / 7.5:1 */
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -29,6 +33,10 @@
     --ok: #7fd99a;
     --bad: #ff8a80;
     --focus: #8ab4ff;
+    --acute: #ff8a80;
+    --allergy: #ffb366;
+    --longterm: #e8d36a;
+    --quality: #c8c8c8;
   }
 }
 
@@ -146,3 +154,17 @@ input[type="text"], input[type="date"] {
 .add-form { display: flex; gap: .5rem; margin-top: .25rem; }
 .add-form input { flex: 1; }
 .replay { margin-top: 1.5rem; }
+
+/* Severity: icon + text, never colour alone */
+.sev { margin: .3rem 0 .1rem; font-weight: 700; display: flex; gap: .35rem; align-items: baseline; }
+.sev-icon { font-size: .95em; }
+.sev-acute, .sev-other { color: var(--acute); }
+.sev-allergy { color: var(--allergy); }
+.sev-longterm { color: var(--longterm); }
+.sev-quality { color: var(--quality); font-weight: 600; }
+.sev-personal { text-decoration: underline; text-underline-offset: 3px; }
+.detail .sev { font-size: 1.1rem; }
+.linkbtn { font: inherit; background: none; border: 0; padding: .5rem .25rem; min-height: 44px; color: var(--text); text-decoration: underline; cursor: pointer; }
+.pre { white-space: pre-line; }
+.panel h3 { margin-top: 1rem; }
+.import { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .75rem; padding: 1rem; }

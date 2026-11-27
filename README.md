@@ -12,6 +12,16 @@ can check whether you have it at home.
 - **Settings**: your store chains, notify about *all recalls* (default) or
   *only my stores*, optional watch words ("mælk" also finds "letmælk"), Danish
   or English.
+- **Severity** on every recall: 🔴 acute (don't eat it), 🟠 allergy,
+  🟡 long-term risk, ⚪ unfit to eat. Acute ones notify with sound; the others
+  arrive silently unless they concern your household.
+- **Household profile**: allergies (the 14 EU allergens) and "pregnant, small
+  children or weak immune system". An allergen recall for your household is
+  urgent and notifies even in "only my stores" mode.
+- **Sharing**: share a recall to WhatsApp/SMS etc., and share your settings
+  as a link a partner can open to get the same stores, words and household.
+- **English**: each recall's full text is machine-translated (Cloudflare
+  Workers AI) when the app is in English, with the Danish original one tap away.
 - **Push notifications** with the same short text as the card. Tapping one
   opens the recall.
 
@@ -42,8 +52,9 @@ Fødevarestyrelsen RSS ──every 15 min──▶ Cloudflare Worker (cron)
 | `src/parse.js` | RSS + recall page parser (4 page layouts seen since 2021) |
 | `src/poll.js` | The scheduled job |
 | `src/push.js` | Web Push sending (WebCrypto VAPID, `@block65/webcrypto-web-push`) |
+| `src/translate.js` | Danish → English translation with Workers AI |
 | `src/worker.js` | API routes + cron entry point |
-| `public/shared/` | Store matching, watch words, card/notification text (used by Worker and app) |
+| `public/shared/` | Store matching, watch words, severity, card/notification text (used by Worker and app) |
 | `public/` | The PWA: `index.html`, `app.js`, `sw.js`, `manifest.webmanifest`, icons |
 | `test/` | Tests; `test/fixtures/` holds real pages from the site |
 
@@ -90,6 +101,10 @@ npm run vapid > .dev.vars
 ```bash
 npx wrangler dev --test-scheduled
 ```
+
+`wrangler dev` needs a Cloudflare login for the Workers AI binding (it always
+runs remotely). Without one, copy `wrangler.jsonc`, delete the `"ai"` line and
+start with `npx wrangler dev -c <that copy>`; translation is then skipped.
 
 Open http://localhost:8787. To run the cron job once:
 
@@ -144,6 +159,7 @@ recall.
 | `VAPID_SUBJECT` | var | Contact URL sent to push services (your Worker URL) |
 | `ADMIN_TOKEN` | optional secret | Enables `POST /api/admin/poll` |
 | `KV` | binding | Workers KV namespace (created automatically on first deploy) |
+| `AI` | binding | Workers AI, for English translations (optional: without it the app shows Danish) |
 
 Changing the VAPID keys (or deleting the `vapid` KV entry) invalidates existing
 subscriptions: turn notifications off and on again in the app.
@@ -162,6 +178,37 @@ subscriptions: turn notifications off and on again in the app.
 | `POST /api/replay` | `{endpoint, id}` – send a past recall to that device |
 | `POST /api/admin/poll` | Run the poll now (`Authorization: Bearer ADMIN_TOKEN`) |
 
+## Severity levels
+
+| Level | Reasons | Notification |
+|---|---|---|
+| 🔴 Acute | Listeria, salmonella, E. coli, other bacteria/virus, botulism, foreign bodies (metal, glass, plastic), histamine | Sound |
+| 🟠 Allergy | Undeclared allergen | Sound if it's a household allergen, otherwise silent |
+| 🟡 Long-term | Mycotoxins, pesticides, chemical residues, prohibited cattle material | Silent |
+| ⚪ Unfit to eat | Insects, mould, spoilage | Silent |
+| 🔴 Unknown | Reason not recognised | Sound (never silenced by mistake) |
+
+With "pregnant, small children or weak immune system" switched on, listeria,
+salmonella, E. coli and botulism are marked extra serious.
+
+## Translation
+
+The Worker translates up to 2 recalls per run, after sending any
+notifications, with `@cf/meta/llama-3.3-70b-instruct-fp8-fast` in JSON mode.
+Translations are stored with the recall and redone only when the Danish text
+changes. A failed translation is retried after 6 hours; meanwhile the app
+shows the Danish text. Product names, stores, dates, EAN and lot codes are
+kept as written.
+
+## Non-food recalls (checked 27 Nov 2026)
+
+- **Sikkerhedsstyrelsen (sik.dk):** no usable recall data. Its only RSS feed
+  holds internal newsletter tests; the "Farlige produkter" news category has
+  three warnings (2017–2019).
+- **Erhvervsstyrelsen (erst.dk):** blocks all automated requests with a
+  bot challenge (HTTP 403), so it can't be used.
+- **EU Safety Gate:** not checked yet; the likely source if non-food is added.
+
 ## Known limitations
 
 - **Not yet verified:** that Fødevarestyrelsen accepts requests from
@@ -179,6 +226,11 @@ subscriptions: turn notifications off and on again in the app.
   end of a word; 2-letter words ("æg") match only whole words, inflections and
   clear compounds.
 - "Har jeg den?" compares exact dates and EANs; it can't compare lot numbers.
+- Translations are machine-made and can be wrong; the "Show original" button
+  shows the Danish text. Workers AI has a free daily allowance that this
+  volume (~10 recalls a month) stays far below, but this wasn't measured.
+- Severity is derived from the parsed reason; an unusual wording may be
+  classified as "unknown" (always loud) rather than its real level.
 - Android Chrome only. Out of scope: iOS, Play Store/TWA, non-food recalls,
   EU Safety Gate, barcode scanning, receipts.
 - The app's interpretation can be wrong; the official notice applies.

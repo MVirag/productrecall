@@ -1,11 +1,12 @@
 import { STRINGS } from './i18n.js';
 import { DEFAULT_CHAINS } from './shared/chains.js';
 import { summarize, decide } from './shared/summary.js';
+import { ALLERGENS, ALLERGEN_LABELS, LEVEL_LABELS } from './shared/severity.js';
 
 // ------------------------------------------------------------ settings (on device)
 
 const SETTINGS_KEY = 'tilbagekald.settings.v1';
-const defaults = { lang: 'da', mode: 'all', chains: [], extraChains: [], words: [] };
+const defaults = { lang: 'da', mode: 'all', chains: [], extraChains: [], words: [], allergens: [], vulnerable: false };
 
 function loadSettings() {
   try {
@@ -20,7 +21,41 @@ function saveSettings() {
   syncSubscription();
 }
 const t = (k) => STRINGS[settings.lang][k] ?? STRINGS.da[k] ?? k;
-const serverSettings = () => ({ chains: settings.chains, mode: settings.mode, words: settings.words, lang: settings.lang });
+const SHARED_KEYS = ['chains', 'extraChains', 'mode', 'words', 'lang', 'allergens', 'vulnerable'];
+const serverSettings = () => ({
+  chains: settings.chains, mode: settings.mode, words: settings.words, lang: settings.lang,
+  allergens: settings.allergens, vulnerable: settings.vulnerable,
+});
+
+// Settings travel in a link: #/import/<base64url JSON>. Nothing goes to a server.
+function encodeSettings() {
+  const json = JSON.stringify(Object.fromEntries(SHARED_KEYS.map((k) => [k, settings[k]])));
+  return btoa(String.fromCharCode(...new TextEncoder().encode(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function decodeSettings(code) {
+  const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'));
+  const obj = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+  const out = {};
+  const strList = (v) => (Array.isArray(v) ? v.map(String).map((x) => x.slice(0, 40)).slice(0, 40) : []);
+  out.chains = strList(obj.chains);
+  out.extraChains = strList(obj.extraChains);
+  out.words = strList(obj.words);
+  out.allergens = strList(obj.allergens).filter((a) => ALLERGENS.includes(a));
+  out.mode = obj.mode === 'mine' ? 'mine' : 'all';
+  out.lang = obj.lang === 'en' ? 'en' : 'da';
+  out.vulnerable = obj.vulnerable === true;
+  return out;
+}
+
+async function share({ title, text, url }, msgEl) {
+  try {
+    if (navigator.share) { await navigator.share({ title, text, url }); return; }
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    if (msgEl) msgEl.textContent = t('copied');
+  } catch (e) {
+    if (e?.name !== 'AbortError' && msgEl) msgEl.textContent = url;
+  }
+}
 
 // ------------------------------------------------------------ tiny DOM helper
 
@@ -123,6 +158,12 @@ function setTitle(text) {
   document.title = text ? `${text} · ${t('appName')}` : t('appName');
 }
 
+function sevBadge(s) {
+  const lvl = s.severity.level;
+  return h('p', { class: `sev sev-${lvl}${s.severity.personal ? ' sev-personal' : ''}` },
+    h('span', { 'aria-hidden': 'true', class: 'sev-icon' }, LEVEL_LABELS[lvl].icon), ' ', s.severityText);
+}
+
 function badgeFor(s, d) {
   if (s.mine) return h('span', { class: 'badge badge-mine' }, `★ ${t('yourStore')}${s.viaGroup ? ` (${t('viaGroup')})` : ''}`);
   if (d.words.length) return h('span', { class: 'badge badge-mine' }, `★ ${t('watchHit')}: ${d.words.join(', ')}`);
@@ -133,13 +174,14 @@ function badgeFor(s, d) {
 function card(r) {
   const s = summarize(r, settings, settings.lang);
   const d = decide(r, settings);
-  const highlight = s.mine || d.words.length > 0;
+  const highlight = d.highlight;
   return h('li', {},
     h('a', { class: `card${highlight ? ' card-mine' : ''}`, href: `#/recall/${encodeURIComponent(r.id)}` },
       h('div', { class: 'card-top' },
         h('span', { class: 'store' }, s.store),
         h('time', { datetime: r.published }, fmtDate(r.published))),
       badgeFor(s, d),
+      sevBadge(s),
       h('h2', { class: 'product' }, s.product),
       h('p', { class: 'facts' }, [s.size, s.dates].filter(Boolean).join(' · ')),
       h('p', { class: 'why' }, h('span', { class: 'reason' }, s.reason), ' · ', h('span', { class: 'action' }, s.action)),
@@ -230,25 +272,46 @@ async function viewRecall(id) {
   const replayMsg = h('p', { class: 'small', role: 'status' });
   const sub = await currentSubscription().catch(() => null);
   const unsure = (r.uncertain || []).map((k) => STRINGS[settings.lang].unsureFields[k] || k);
+  // English: show the machine translation unless the reader asked for the original.
+  const en = settings.lang === 'en' && r.en && !showOriginal.has(r.id) ? r.en : null;
+  const tx = {
+    title: en?.title || r.title, lead: en?.lead || r.lead, stores: en?.stores || r.stores?.text,
+    reason: en?.reason || r.reason?.text, action: en?.action || r.action?.text,
+  };
+  const shareMsg = h('p', { class: 'small', role: 'status', 'aria-live': 'polite' });
+  const recallUrl = `${location.origin}/#/recall/${encodeURIComponent(r.id)}`;
+  const shareText = [s.severityText, `${s.store} · ${s.product}`, [s.dates, s.reason, s.action].filter(Boolean).join(' · ')].join('\n');
 
   m.replaceChildren(
     h('a', { href: '#/', class: 'back' }, `← ${t('back')}`),
     h('article', { class: 'detail' },
       badgeFor(s, d),
-      h('h1', {}, r.title),
+      h('h1', {}, tx.title),
       h('p', { class: 'muted small' },
         `${t('published')} ${fmtDate(r.published)}`, r.updated ? ` · ${r.updated}` : ''),
+      settings.lang === 'en' && r.en ? h('p', { class: 'muted small' },
+        showOriginal.has(r.id) ? 'Showing the original Danish text. ' : 'Machine-translated from Danish. ',
+        h('button', { type: 'button', class: 'linkbtn', onclick: () => {
+          if (showOriginal.has(r.id)) showOriginal.delete(r.id); else showOriginal.add(r.id);
+          viewRecall(r.id);
+        } }, showOriginal.has(r.id) ? 'Show English' : 'Show original')) : null,
+      settings.lang === 'en' && !r.en ? h('p', { class: 'muted small' }, 'English translation not ready yet – showing the Danish notice.') : null,
+      sevBadge(s),
       h('div', { class: 'summary' },
         h('p', { class: 'store' }, s.store),
         h('p', { class: 'reason big' }, s.reason),
         h('p', { class: 'action big' }, s.action)),
       r.image ? h('img', { src: r.image, alt: `${t('productImage')}: ${s.product}`, class: 'product-img', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
-      r.lead ? h('p', { class: 'lead' }, r.lead) : null,
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn', onclick: () => share({ title: s.product, text: shareText, url: recallUrl }, shareMsg) }, `${t('share')} ↗`)),
+      shareMsg,
+      tx.lead ? h('p', { class: 'lead' }, tx.lead) : null,
       r.products?.length ? checker(r) : null,
       r.products?.length ? h('section', {}, h('h2', {}, `${t('products')} (${r.products.length})`), h('ul', { class: 'products' }, r.products.map(productBlock))) : null,
-      r.stores?.text ? h('section', {}, h('h2', {}, t('whereSold')), h('p', {}, r.stores.text)) : null,
-      r.reason?.text ? h('section', {}, h('h2', {}, t('why')), h('p', {}, r.reason.text)) : null,
-      r.action?.text ? h('section', {}, h('h2', {}, t('whatToDo')), h('p', {}, r.action.text)) : null,
+      en?.product ? h('section', {}, h('h2', {}, 'Product details (translated)'), h('p', { class: 'pre' }, en.product)) : null,
+      tx.stores ? h('section', {}, h('h2', {}, t('whereSold')), h('p', {}, tx.stores)) : null,
+      tx.reason ? h('section', {}, h('h2', {}, t('why')), h('p', {}, tx.reason)) : null,
+      tx.action ? h('section', {}, h('h2', {}, t('whatToDo')), h('p', {}, tx.action)) : null,
       r.recaller ? h('section', {}, h('h2', {}, t('recaller')), h('p', {}, r.recaller)) : null,
       h('p', {}, h('a', { href: r.url, class: 'btn btn-primary', target: '_blank', rel: 'noopener' }, `${t('official')} ↗`)),
       unsure.length ? h('p', { class: 'muted small' }, `${t('unsure')}: ${unsure.join(', ')}.`) : null,
@@ -268,6 +331,7 @@ async function viewRecall(id) {
   window.scrollTo(0, 0);
 }
 
+const showOriginal = new Set();
 let installEvent = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -275,13 +339,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
   if (location.hash.startsWith('#/settings')) route();
 });
 
-function toggleList(names, selected, onToggle, onRemove) {
+function toggleList(names, selected, onToggle, onRemove, label = (x) => x) {
   return h('ul', { class: 'chips' }, names.map((name) =>
     h('li', {},
       h('button', {
         type: 'button', class: 'chip', 'aria-pressed': String(selected.includes(name)),
         onclick: () => onToggle(name),
-      }, name),
+      }, label(name)),
       onRemove ? h('button', { type: 'button', class: 'chip-x', 'aria-label': `${t('remove')} ${name}`, onclick: () => onRemove(name) }, '×') : null)));
 }
 
@@ -360,6 +424,19 @@ async function viewSettings() {
       })),
 
     h('section', { class: 'panel' },
+      h('h2', {}, t('household')),
+      h('p', { class: 'muted small' }, t('householdHelp')),
+      h('h3', { id: 'allergy-h' }, t('allergies')),
+      toggleList(ALLERGENS, settings.allergens, (a) => {
+        settings.allergens = settings.allergens.includes(a) ? settings.allergens.filter((x) => x !== a) : [...settings.allergens, a];
+        saveSettings(); rerender();
+      }, null, (a) => ALLERGEN_LABELS[a][settings.lang]),
+      h('label', { class: 'radio' },
+        h('input', { type: 'checkbox', checked: settings.vulnerable, onchange: (e) => { settings.vulnerable = e.target.checked; saveSettings(); } }),
+        t('vulnerable')),
+      h('p', { class: 'muted small' }, t('vulnerableHelp'))),
+
+    h('section', { class: 'panel' },
       h('h2', {}, t('words')),
       h('p', { class: 'muted small' }, t('wordsHelp')),
       settings.words.length ? toggleList(settings.words, settings.words, () => {}, (w) => {
@@ -379,11 +456,48 @@ async function viewSettings() {
             onchange: () => { settings.lang = code; saveSettings(); applyLang(); rerender(); } }),
           label)))),
 
+    h('section', { class: 'panel' },
+      h('h2', {}, t('shareSettings')),
+      h('p', { class: 'muted small' }, t('shareSettingsHelp')),
+      h('button', { type: 'button', class: 'btn', onclick: () => share({
+        title: t('appName'), text: t('shareSettingsText'), url: `${location.origin}/#/import/${encodeSettings()}`,
+      }, msg) }, `${t('shareSettings')} ↗`)),
+
     h('section', { class: 'panel muted small' },
       h('h2', {}, t('status')),
       h('p', {}, `${t('lastCheck')}: ${fmtTime(status?.lastPoll)}`),
       status?.lastError ? h('p', {}, `${t('feedError')}: ${status.lastError.message} (${fmtTime(status.lastError.at)})`) : null,
       h('p', {}, t('about'))),
+  );
+}
+
+function viewImport(code) {
+  const m = main();
+  let incoming;
+  try { incoming = decodeSettings(code); } catch {
+    m.replaceChildren(h('p', { class: 'notice' }, t('importBad')), h('a', { href: '#/settings', class: 'btn' }, t('navSettings')));
+    return;
+  }
+  setTitle(t('importTitle'));
+  const allergenNames = incoming.allergens.map((a) => ALLERGEN_LABELS[a][settings.lang]);
+  const rows = [
+    [t('myStores'), incoming.chains.join(', ') || '—'],
+    [t('mode'), incoming.mode === 'mine' ? t('modeMine') : t('modeAll')],
+    [t('allergies'), allergenNames.join(', ') || '—'],
+    [t('vulnerable'), incoming.vulnerable ? t('yes') : '—'],
+    [t('words'), incoming.words.join(', ') || '—'],
+  ];
+  m.replaceChildren(
+    h('h1', {}, t('importTitle')),
+    h('p', {}, t('importHelp')),
+    h('dl', { class: 'panel import' }, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
+    h('div', { class: 'row' },
+      h('button', { type: 'button', class: 'btn btn-primary', onclick: () => {
+        settings = { ...settings, ...incoming };
+        saveSettings(); applyLang();
+        location.hash = '#/settings';
+      } }, t('importUse')),
+      h('a', { href: '#/', class: 'btn btn-quiet' }, t('cancel'))),
   );
 }
 
@@ -404,6 +518,8 @@ function route() {
   }
   const m = hash.match(/^#\/recall\/(.+)$/);
   if (m) return viewRecall(decodeURIComponent(m[1]));
+  const imp = hash.match(/^#\/import\/([A-Za-z0-9_-]+)$/);
+  if (imp) return viewImport(imp[1]);
   if (hash.startsWith('#/settings')) return viewSettings();
   return viewFeed();
 }
