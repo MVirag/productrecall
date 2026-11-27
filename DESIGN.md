@@ -25,6 +25,11 @@ Reason tags (`.tag`) take the recall's level color. An allergen in the household
 ## Card, top to bottom
 Severity strip, photo (72px, only when `recall.image` exists; no placeholder) beside product, reason tags and dates, action, badges, footer with stores and date.
 
+## Detail screen, top to bottom
+Share (quiet icon button, top right) and back; severity banner (with one short note under it when the notice names vulnerable groups); the authority's quote, three lines then "Læs hele citatet"; product photo (96px thumbnail, links to the full image; omitted if missing or it fails to load) beside the relevance badge, title and published date; the facts list (what to do, why, where sold); "Appen er usikker på…" note when the parser was unsure; the "Har jeg den?" check; products (on a recall with more than three products, those sold in the reader's stores first, flagged "Din butik", the rest under "Andre produkter"); for levels that can hurt (health, allergy, possible, unstated) the full advice text; one "Læs hele meddelelsen" disclosure holding the lead, the de-duplicated where-sold list, the reason and the recaller (and the advice text for the other levels); the official link; the original text.
+
+The pack check never reads "no match" as safe on a level that can hurt, and offers "Jeg kan ikke læse datoen", which tells the reader to assume it applies when name and size match. Logic lives in `public/shared/detail.js` (tested).
+
 ## Rules
 - System font stack. Sizes come from `--fs-*` / `--lh-*` tokens (title 24/30, product 19/25, heading 18/24, body 17/25, verdict 17/22, meta 15/21); do not write font sizes as literals. `font-variant-numeric: tabular-nums` for dates.
 - Spacing 4/8/12/16/24/32px; radius 8/12px, pills for chips and badges; no shadows.

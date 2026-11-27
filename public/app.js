@@ -3,6 +3,7 @@ import { DEFAULT_CHAINS } from './shared/chains.js';
 import { summarize, decide } from './shared/summary.js';
 import { ALLERGENS, ALLERGEN_LABELS, LEVEL_LABELS, LEVELS, vulnerableText, coversAllergen } from './shared/severity.js';
 import { icon } from './icons.js';
+import { isCareful, splitProducts, uniqueStores } from './shared/detail.js';
 
 // ------------------------------------------------------------ settings (on device)
 
@@ -162,9 +163,14 @@ function setTitle(text) {
 }
 
 // Severity: shape icon + words, coloured by level. `variant` is 'strip' (feed card) or 'banner' (detail).
-function sevBadge(s, variant = 'strip') {
+// A banner can carry one short note under the label (e.g. who is especially at risk).
+function sevBadge(s, variant = 'strip', note = null) {
   const lvl = s.severity.level;
-  return h('p', { class: `sev sev-${lvl} sev-${variant}` }, icon(lvl, { md: true }), h('span', {}, s.severityText));
+  const label = [icon(lvl, { md: true }), h('span', {}, s.severityText)];
+  if (!note) return h('p', { class: `sev sev-${lvl} sev-${variant}` }, ...label);
+  return h('div', { class: `sev sev-${lvl} sev-${variant} sev-has-note` },
+    h('p', { class: 'sev-row' }, ...label),
+    h('p', { class: 'sev-note' }, icon('users'), h('span', {}, note)));
 }
 
 function badgeFor(s, d) {
@@ -190,10 +196,10 @@ function reasonTags(r, s) {
 }
 
 // The feed asks for a small copy of the photo; if it will not load, the card simply has no photo.
-function thumbSrc(url) {
+function thumbSrc(url, width = 160) {
   try {
     const u = new URL(url);
-    if (u.searchParams.has('width')) u.searchParams.set('width', '160');
+    if (u.searchParams.has('width')) u.searchParams.set('width', String(width));
     return u.toString();
   } catch { return url; }
 }
@@ -240,7 +246,7 @@ async function viewFeed() {
   }
 }
 
-function productBlock(p) {
+function productBlock(p, mine = false) {
   const rows = [
     [t('size'), p.size],
     [t('bestBefore'), p.allDates ? t('allDates') : p.bestBefore.map(fmtDay).join(', ')],
@@ -251,10 +257,11 @@ function productBlock(p) {
   ].filter(([, v]) => v);
   return h('li', { class: 'product-item' },
     h('h3', {}, p.name || '—'),
+    mine ? h('p', { class: 'product-flag' }, h('span', { class: 'badge badge-mine' }, icon('target'), t('yourStore'))) : null,
     h('dl', {}, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
 }
 
-function checker(r) {
+function checker(r, careful = false) {
   const out = h('p', { class: 'check-result', role: 'status', 'aria-live': 'polite' });
   const dateIn = h('input', { type: 'date', id: 'packdate' });
   const eanIn = h('input', { type: 'text', id: 'packean', inputmode: 'numeric', autocomplete: 'off', pattern: '[0-9 ]*' });
@@ -268,6 +275,7 @@ function checker(r) {
       if (allDates) { parts.push(t('checkResultAll')); level = 'bad'; }
       else if (!dates.size) parts.push(t('checkResultNoDates'));
       else if (dates.has(dateIn.value)) { parts.push(t('checkResultYes')); level = 'bad'; }
+      else if (careful) parts.push(t('checkResultNoCareful'));
       else { parts.push(t('checkResultNo')); level = level || 'ok'; }
     }
     const ean = eanIn.value.replace(/\D/g, '');
@@ -283,6 +291,7 @@ function checker(r) {
     h('h2', { id: 'chk' }, t('doIHave')),
     allDates ? h('p', { class: 'check-result bad' }, t('checkResultAll')) : h('p', { class: 'muted' }, t('doIHaveHelp')),
     h('label', { for: 'packdate' }, t('packDate')), dateIn,
+    h('button', { type: 'button', class: 'linkbtn', onclick: () => { out.textContent = t('checkResultUnreadable'); out.className = 'check-result bad'; } }, t('cantReadDate')),
     eans.size ? [h('label', { for: 'packean' }, t('packEan')), eanIn] : null,
     out);
 }
@@ -320,20 +329,64 @@ async function viewRecall(id) {
   const shareMsg = h('p', { class: 'small', role: 'status', 'aria-live': 'polite' });
   const recallUrl = `${location.origin}/#/recall/${encodeURIComponent(r.id)}`;
   const shareText = [s.severityText, `${s.store} · ${s.product}`, [s.dates, s.reason, s.action].filter(Boolean).join(' · ')].join('\n');
+  const careful = isCareful(s.severity.level);
+
+  // Authority quote: three lines, then "read the full quote".
+  const quote = s.severity.quote;
+  const quoteBox = quote ? h('blockquote', { class: 'authority' },
+    h('span', { class: 'small muted' }, settings.lang === 'en' ? 'Fødevarestyrelsen (in Danish): ' : 'Fødevarestyrelsen: '),
+    h('span', { class: 'authority-text' }, `“${quote}”`)) : h('p', { class: 'muted small' }, t('noRiskStatement'));
+  if (quote && quote.length > 140) {
+    quoteBox.classList.add('is-clamped');
+    const toggle = h('button', { type: 'button', class: 'linkbtn', 'aria-expanded': 'false', onclick: () => {
+      const clamped = quoteBox.classList.toggle('is-clamped');
+      toggle.textContent = clamped ? t('readMore') : t('readLess');
+      toggle.setAttribute('aria-expanded', String(!clamped));
+    } }, t('readMore'));
+    quoteBox.append(toggle);
+  }
+
+  // Products: on a big recall, the ones sold in the reader's stores come first.
+  const products = r.products || [];
+  const { mine: myProducts, others: otherProducts } = splitProducts(products, settings.chains);
+  const flagged = products.length > 3 && myProducts.length > 0 && otherProducts.length > 0;
+  const productList = (list) => h('ul', { class: 'products' }, list.map((p) => productBlock(p, flagged && myProducts.includes(p))));
+  const productSection = products.length ? h('section', {},
+    h('h2', {}, `${t('products')} (${products.length})`),
+    flagged ? h('p', { class: 'muted small' }, t('productsMine').replace('{n}', myProducts.length).replace('{total}', products.length)) : null,
+    flagged ? [productList(myProducts), h('details', { class: 'more' }, h('summary', {}, `${t('otherProducts')} (${otherProducts.length})`), productList(otherProducts))]
+      : productList(products)) : null;
+
+  const thumb = r.image ? h('a', { class: 'thumb-link', href: r.image, target: '_blank', rel: 'noopener', 'aria-label': `${t('productImage')}: ${s.product}` },
+    h('img', {
+      class: 'thumb thumb-lg', src: thumbSrc(r.image, 240), alt: '', width: 96, height: 96, loading: 'lazy', referrerpolicy: 'no-referrer',
+      onerror: (e) => { const head = e.target.closest('.detail-head'); head?.classList.remove('has-photo'); e.target.closest('.thumb-link').remove(); },
+    })) : null;
+
+  const whereSold = uniqueStores(tx.stores);
+  // Everything the facts list already says, plus the notice's own text, behind one disclosure.
+  const moreParts = [
+    tx.lead ? h('p', { class: 'lead' }, tx.lead) : null,
+    whereSold.length ? h('section', {}, h('h2', {}, t('whereSold')), h('ul', { class: 'plain-list' }, whereSold.map((x) => h('li', {}, x)))) : null,
+    tx.reason ? h('section', {}, h('h2', {}, t('why')), h('p', {}, tx.reason)) : null,
+    !careful && tx.action ? h('section', {}, h('h2', {}, t('whatToDo')), h('p', {}, tx.action)) : null,
+    r.recaller ? h('section', {}, h('h2', {}, t('recaller')), h('p', {}, r.recaller)) : null,
+  ].filter(Boolean);
 
   m.replaceChildren(
-    h('a', { href: '#/', class: 'back' }, icon('arrow-left'), t('back')),
+    h('div', { class: 'back-row' },
+      h('a', { href: '#/', class: 'back' }, icon('arrow-left'), t('back')),
+      h('button', { type: 'button', class: 'btn btn-quiet icon-btn', 'aria-label': t('share'), onclick: () => share({ title: s.product, text: shareText, url: recallUrl }, shareMsg) }, icon('share'))),
+    shareMsg,
     h('article', { class: 'detail' },
-      sevBadge(s, 'banner'),
-      s.severity.quote ? h('blockquote', { class: 'authority' },
-        h('span', { class: 'small muted' }, settings.lang === 'en' ? 'Fødevarestyrelsen (in Danish): ' : 'Fødevarestyrelsen: '),
-        `“${s.severity.quote}”`) : h('p', { class: 'muted small' }, t('noRiskStatement')),
-      s.severity.vulnerableMentioned ? h('p', { class: `small${settings.vulnerable ? ' badge badge-mine' : ' muted'}` }, vulnerableText(settings.lang)) : null,
-      r.image ? h('img', { src: r.image, alt: `${t('productImage')}: ${s.product}`, class: 'hero-photo', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
-      badgeFor(s, d),
-      h('h1', {}, tx.title),
-      h('p', { class: 'muted small' },
-        `${t('published')} ${fmtDate(r.published)}`, r.updated ? ` · ${r.updated}` : ''),
+      sevBadge(s, 'banner', s.severity.vulnerableMentioned ? vulnerableText(settings.lang) : null),
+      quoteBox,
+      h('div', { class: `detail-head${thumb ? ' has-photo' : ''}` },
+        thumb,
+        h('div', { class: 'detail-title' },
+          badgeFor(s, d),
+          h('h1', {}, tx.title),
+          h('p', { class: 'muted small' }, `${t('published')} ${fmtDate(r.published)}`, r.updated ? ` · ${r.updated}` : ''))),
       settings.lang === 'en' && r.en ? h('p', { class: 'muted small' },
         showOriginal.has(r.id) ? 'Showing the original Danish text. ' : 'Machine-translated from Danish. ',
         h('button', { type: 'button', class: 'linkbtn', onclick: () => {
@@ -345,19 +398,13 @@ async function viewRecall(id) {
         factRow('done', s.action, t('whatToDo')),
         factRow('tag', s.reason, t('why')),
         factRow('pin', s.store, t('whereSold'))),
-      h('div', { class: 'row' },
-        h('button', { type: 'button', class: 'btn', onclick: () => share({ title: s.product, text: shareText, url: recallUrl }, shareMsg) }, icon('share'), t('share'))),
-      shareMsg,
-      tx.lead ? h('p', { class: 'lead' }, tx.lead) : null,
-      r.products?.length ? checker(r) : null,
-      r.products?.length ? h('section', {}, h('h2', {}, `${t('products')} (${r.products.length})`), h('ul', { class: 'products' }, r.products.map(productBlock))) : null,
-      tx.stores ? h('section', {}, h('h2', {}, t('whereSold')), h('p', {}, tx.stores)) : null,
-      tx.reason ? h('section', {}, h('h2', {}, t('why')), h('p', {}, tx.reason)) : null,
-      tx.action ? h('section', {}, h('h2', {}, t('whatToDo')), h('p', {}, tx.action)) : null,
-      r.recaller ? h('section', {}, h('h2', {}, t('recaller')), h('p', {}, r.recaller)) : null,
-      h('p', {}, h('a', { href: r.url, class: 'btn btn-primary', target: '_blank', rel: 'noopener' }, t('official'), icon('external'))),
       unsure.length ? h('p', { class: 'muted small' }, `${t('unsure')}: ${unsure.join(', ')}.`) : null,
-      r.raw?.product ? h('details', {}, h('summary', {}, t('rawText')),
+      products.length ? checker(r, careful) : null,
+      productSection,
+      careful && tx.action ? h('section', {}, h('h2', {}, t('whatToDo')), h('p', {}, tx.action)) : null,
+      moreParts.length ? h('details', { class: 'more' }, h('summary', {}, t('readFull')), ...moreParts) : null,
+      h('p', {}, h('a', { href: r.url, class: 'btn btn-primary', target: '_blank', rel: 'noopener' }, t('official'), icon('external'))),
+      r.raw?.product ? h('details', { class: 'more' }, h('summary', {}, t('rawText')),
         ...Object.entries(r.raw).filter(([, v]) => v).map(([k, v]) => h('pre', { 'data-k': k }, v))) : null,
     ),
   );
