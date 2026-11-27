@@ -1,76 +1,84 @@
-// Translation with a fake Workers AI binding (the real model only runs on Cloudflare).
+// Translation checks, with a fake Workers AI binding (the real model only
+// runs on Cloudflare). The rejected examples are what the real model
+// returned on the live app on 27 Nov 2026.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { parseDetail } from '../src/parse.js';
-import { translateRecall, textHash, TRANSLATE_MODEL } from '../src/translate.js';
+import {
+  translateRecall, textHash, checkTranslation, looksDanish, isCurrentTranslation, TRANSLATE_MODEL, TRANSLATE_VERSION,
+} from '../src/translate.js';
 
 const page = (id) => parseDetail(fs.readFileSync(new URL(`./fixtures/pages/${id}.html`, import.meta.url), 'utf8'), { id });
+const lastLine = (prompt) => prompt.split('\n').pop();
 
 function fakeAI(reply) {
   const calls = [];
-  return { calls, run: async (model, input) => { calls.push({ model, input }); return reply(input); } };
+  return { calls, run: async (model, input) => { calls.push({ model, input }); return reply(lastLine(input.prompt), input); } };
 }
 
-test('sends one JSON-mode request with all fields and keeps the Danish on gaps', async () => {
+test('live regression: an invented Danish "translation" of the peas recall is rejected', () => {
+  const r = page('2026-nov-tilbagekald-fund-af-biller-i-fine-aerter');
+  // What the model actually returned for this recall:
+  assert.notEqual(checkTranslation(r.title, 'Tilbagekald: Fund af fremmedlegemer i kyllingeprodukt'), '');
+  const lead = 'SuperBrugsen tilbagekalder kyllingeprodukt pga. fund af fremmedlegemer. Produktet er solgt i SuperBrugsen butikker i hele landet.';
+  assert.notEqual(checkTranslation(r.lead || r.title, lead), '');
+  // Even if it had been in English, an invented store is caught:
+  assert.match(checkTranslation('Produktet er solgt i REMA 1000.', 'The product was sold at SuperBrugsen.'), /stores not in the original: SuperBrugsen/);
+});
+
+test('live regression: Danish echoed back is rejected', () => {
+  const src = 'Der er risiko for mykotoksiner i produkterne, og en sundhedsmæssig risiko kan derfor ikke udelukkes.';
+  assert.equal(checkTranslation(src, src), 'unchanged');
+  assert.equal(checkTranslation(src, 'Der er risiko for mykotoksiner i produkterne.'), 'not English');
+});
+
+test('a faithful English translation passes', () => {
+  assert.equal(checkTranslation(
+    'Heat\'n Eat Okse kebab, Nettoindhold: 400 g, Bedst før 7/4-2028, EAN: 5705518183096',
+    'Heat\'n Eat Okse kebab, net content: 400 g, best before 7/4-2028, EAN: 5705518183096'), '');
+  assert.equal(checkTranslation('Produktet er solgt i REMA 1000 og hos Nemlig.com.', 'The product was sold at REMA 1000 and Nemlig.com.'), '');
+  assert.equal(looksDanish('Har du produktet, bør du enten levere det tilbage til butikken.'), true);
+  assert.equal(looksDanish('If you have the product, return it to the store or throw it away.'), false);
+});
+
+test('numbers must survive (EAN, dates, sizes)', () => {
+  assert.match(checkTranslation('EAN: 5705518183096, bedst før 07.04.2028', 'EAN: 570551818309, best before 07.04.2028'), /numbers missing/);
+});
+
+test('field by field: good fields kept, bad fields stay Danish, results are labelled with the version', async () => {
   const r = page('2026-nov-tilbagekald-af-oksekebab');
-  const ai = fakeAI(() => ({ response: { title: 'Recall of beef kebab', lead: 'Dencon Foods A/S is recalling beef kebab…', stores: 'The product was sold at REMA 1000 and Nemlig.com.', reason: 'Bovine brain tissue was found.', action: '' } }));
+  const ai = fakeAI((text) => {
+    if (text.startsWith('Tilbagekald af')) return { response: 'Recall of beef kebab' };
+    if (text.includes('REMA 1000')) return { response: 'The product was sold at SuperBrugsen.' }; // invented store
+    if (text.includes('hjernevæv')) return { response: 'Analysis found brain tissue from cattle in the product. Brain tissue from cattle over 12 months old is specified risk material that can potentially contain disease-causing prions and must not be used in food.' };
+    return { response: text }; // echo
+  });
   const en = await translateRecall(ai, r);
   assert.equal(ai.calls[0].model, TRANSLATE_MODEL);
-  assert.equal(ai.calls[0].input.response_format.type, 'json_schema');
-  assert.match(ai.calls[0].input.prompt, /hjernevæv fra kvæg/);
-  assert.doesNotMatch(ai.calls[0].input.prompt, /EAN: 5705518183096/, 'raw product list is not sent');
+  assert.equal(ai.calls[0].input.response_format, undefined, 'plain prompt, no JSON mode');
   assert.equal(en.title, 'Recall of beef kebab');
-  assert.equal(ai.calls.length, 2, 'the empty action field is retried on its own');
-  assert.equal(ai.calls[1].input.response_format, undefined, 'retry uses a plain prompt');
-  assert.equal(en.action, r.action.text, 'still empty after the retry -> Danish kept for that field');
-  assert.equal(en.hash, textHash(r));
+  assert.equal(en.stores, r.stores.text, 'invented store rejected -> Danish kept');
+  assert.match(en.checked.stores, /SuperBrugsen/);
+  assert.equal(en.action, r.action.text, 'echo rejected -> Danish kept');
+  assert.equal(en.checked.title, true);
+  assert.equal(en.version, TRANSLATE_VERSION);
+  assert.equal(isCurrentTranslation(en), true);
+  assert.equal(isCurrentTranslation({ ...en, version: 2 }), false, 'older translations are never shown');
+  assert.equal(isCurrentTranslation({ title: 'x' }), false);
 });
 
-test('accepts a JSON string response with surrounding text', async () => {
-  const r = page('2026-nov-tilbagekald-af-ispinde');
-  const ai = fakeAI(() => ({ response: 'Here you go:\n{"title":"T","lead":"L","stores":"S","reason":"R","action":"A"}' }));
-  const en = await translateRecall(ai, r);
-  assert.deepEqual([en.title, en.action], ['T', 'A']);
+test('nothing passes -> failure (retried later), AI errors too', async () => {
+  const r = page('2026-nov-tilbagekald-smaakager-coronet');
+  await assert.rejects(translateRecall(fakeAI((t) => ({ response: t })), r), /no field passed/);
+  await assert.rejects(translateRecall(fakeAI(() => { throw new Error('AI down'); }), r), /AI down/);
 });
 
-test('textHash changes only when the Danish text changes', () => {
+test('textHash changes with the Danish text and with the translator version', () => {
   const r = page('2026-nov-tilbagekald-af-oksekebab');
   const h = textHash(r);
   assert.equal(textHash(structuredClone(r)), h);
   const changed = structuredClone(r);
   changed.stores.text += ' Opdateret: også Netto.';
   assert.notEqual(textHash(changed), h);
-});
-
-test('echoed Danish (seen live on the Coronet recall) is retried field by field', async () => {
-  const r = page('2026-nov-tilbagekald-smaakager-coronet');
-  // JSON call echoes Danish; plain per-field calls translate.
-  const ai = fakeAI((input) => input.response_format
-    ? { response: JSON.parse(input.prompt.slice(input.prompt.indexOf('{'))) }
-    : { response: `EN: ${input.prompt.split('\n').pop().slice(0, 30)}` });
-  const en = await translateRecall(ai, r);
-  assert.ok(ai.calls.length >= 4, 'one structured call + one per non-empty field');
-  assert.match(en.title, /^EN: /);
-  assert.match(en.reason, /^EN: /);
-});
-
-test('still Danish after the retries counts as a failure (retried later)', async () => {
-  const r = page('2026-nov-tilbagekald-smaakager-coronet');
-  const echoAll = fakeAI((input) => input.response_format
-    ? { response: JSON.parse(input.prompt.slice(input.prompt.indexOf('{'))) }
-    : { response: input.prompt.split('\n').pop() });
-  await assert.rejects(translateRecall(echoAll, r), /untranslated/);
-  const broken = fakeAI(() => { throw new Error('AI down'); });
-  await assert.rejects(translateRecall(broken, r), /untranslated/);
-});
-
-test('a half-translated reply only retries the Danish fields (kebab title case)', async () => {
-  const r = page('2026-nov-tilbagekald-af-oksekebab');
-  const ai = fakeAI((input) => input.response_format
-    ? { response: { title: r.title, lead: 'L', stores: 'S', reason: 'R', action: 'A' } }
-    : { response: 'Recall of beef kebab' });
-  const en = await translateRecall(ai, r);
-  assert.equal(ai.calls.length, 2);
-  assert.equal(en.title, 'Recall of beef kebab');
 });

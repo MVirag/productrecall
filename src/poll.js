@@ -5,7 +5,7 @@
 import { FEED_URL, parseRss, parseDetail, fromRssOnly } from './parse.js';
 import { decide, notificationFor } from '../public/shared/summary.js';
 import { sendPush } from './push.js';
-import { translateRecall, textHash } from './translate.js';
+import { translateRecall, textHash, TRANSLATE_VERSION } from './translate.js';
 
 export const KEYS = { state: 'state', recalls: 'recalls', subPrefix: 'sub:' };
 
@@ -140,14 +140,16 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
   if (env.AI) {
     summary.translated = [];
     const retryAfter = now.getTime() - 6 * 36e5; // back off 6 h after a failed translation
-    const todo = recalls.filter((x) => (!x.en || x.en.hash !== textHash(x)) && !(x.enError && Date.parse(x.enError.at) > retryAfter));
+    const blocked = (x) => x.enError && x.enError.version === TRANSLATE_VERSION && Date.parse(x.enError.at) > retryAfter;
+    const todo = recalls.filter((x) => (!x.en || x.en.hash !== textHash(x)) && !blocked(x));
     for (const r of todo.slice(0, TRANSLATE_PER_RUN)) {
       try {
         r.en = await translateRecall(env.AI, r);
         delete r.enError;
         summary.translated.push(r.id);
       } catch (e) {
-        r.enError = { at: now.toISOString(), message: String(e.message || e).slice(0, 200) };
+        delete r.en; // never keep an older, unchecked translation around
+        r.enError = { at: now.toISOString(), version: TRANSLATE_VERSION, message: String(e.message || e).slice(0, 300) };
         summary.translateError = r.enError.message;
       }
       translated++;

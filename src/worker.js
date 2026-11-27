@@ -3,6 +3,7 @@
 
 import { poll, loadState, loadRecalls, KEYS } from './poll.js';
 import { sendPush, isValidSubscription, getVapid } from './push.js';
+import { isCurrentTranslation } from './translate.js';
 import { notificationFor } from '../public/shared/summary.js';
 import { DEFAULT_CHAINS } from '../public/shared/chains.js';
 import { ALLERGENS, LEVELS } from '../public/shared/severity.js';
@@ -48,9 +49,15 @@ async function getSub(env, endpoint) {
   return v ? { key, ...v } : null;
 }
 
+/** Only translations made and checked by the current translator are ever sent. */
+function publicRecall(r) {
+  const { en, enError, ...rest } = r;
+  return isCurrentTranslation(en) ? { ...rest, en } : rest;
+}
+
 /** Strip the bulky raw text from list responses. */
 function light(r) {
-  const { raw, ...rest } = r;
+  const { raw, ...rest } = publicRecall(r);
   return rest;
 }
 
@@ -77,7 +84,7 @@ async function handleApi(request, env, ctx, url) {
   const one = path.match(/^\/api\/recalls\/([a-z0-9æøå-]+)$/);
   if (one && method === 'GET') {
     const r = (await loadRecalls(env.KV)).find((x) => x.id === decodeURIComponent(one[1]));
-    return r ? json(r) : json({ error: 'not_found' }, 404);
+    return r ? json(publicRecall(r)) : json({ error: 'not_found' }, 404);
   }
 
   if (path === '/api/subscribe' && method === 'POST') {

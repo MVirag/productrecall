@@ -234,8 +234,11 @@ test('translation: 2 per run, after notifying, reused when unchanged, backs off 
   const AI = { run: async (model, input) => {
     order.push('ai');
     if (fail) throw new Error('AI down');
-    const src = JSON.parse(input.prompt.slice(input.prompt.indexOf('{')));
-    return { response: Object.fromEntries(Object.entries(src).map(([k, v]) => [k, v ? `EN:${v.slice(0, 20)}` : ''])) };
+    // A well-behaved fake translator: English, keeps every number, invents no stores.
+    const src = input.prompt.split('\n').pop();
+    let out = `EN: The product is recalled and you should return it to the store. ${(src.match(/\d+/g) || []).join(' ')}`;
+    while (out.length < src.length * 0.6) out += ' Return it to the store.';
+    return { response: out };
   } };
   const env = { KV, AI, ...vapidKeys() };
   const phone = fakeBrowser();
@@ -249,6 +252,7 @@ test('translation: 2 per run, after notifying, reused when unchanged, backs off 
   let recalls = await loadRecalls(KV);
   assert.equal(recalls.filter((r) => r.en).length, 2);
   assert.match(recalls.find((r) => r.en).en.title, /^EN:/);
+  assert.equal(recalls.find((r) => r.en).en.version, 3);
 
   feed = RSS; // new recall -> push happens before any translation in that run
   order.length = 0;
@@ -269,9 +273,24 @@ test('translation: 2 per run, after notifying, reused when unchanged, backs off 
   await KV.put('recalls', JSON.stringify(recalls));
   fail = true;
   const s2 = await poll(env, { fetchImpl });
-  assert.match(s2.translateError, /untranslated/);
+  assert.match(s2.translateError, /no field passed/);
   order.length = 0;
   await poll(env, { fetchImpl });
   assert.equal(order.filter((x) => x === 'ai').length, 0, 'backed off');
   assert.equal((await loadState(KV)).lastError, null, 'translation errors do not flag the feed as broken');
+});
+
+test('API never serves translations from older translator versions (live: invented peas text)', async () => {
+  const KV = fakeKV();
+  const env = { KV, ASSETS: { fetch: () => new Response('') } };
+  const base = { id: 'x', title: 'Tilbagekald: Fund af biller i Fine ærter', published: '2026-11-18T10:00:00Z', products: [], stores: {}, reason: {}, action: {}, raw: {} };
+  const invented = { title: 'Tilbagekald: Fund af fremmedlegemer i kyllingeprodukt', hash: 'old' }; // no version = old code
+  const good = { title: 'Recall: beetles found in Fine ærter', version: 3, hash: 'h' };
+  await KV.put('recalls', JSON.stringify([{ ...base, en: invented, enError: { at: 'x', message: 'y' } }, { ...base, id: 'y', en: good }]));
+  const list = await (await worker.fetch(new Request('https://x.dev/api/recalls'), env)).json();
+  assert.equal(list.recalls[0].en, undefined);
+  assert.equal(list.recalls[0].enError, undefined, 'internal error notes are not exposed');
+  assert.equal(list.recalls[1].en.title, good.title);
+  const one = await (await worker.fetch(new Request('https://x.dev/api/recalls/x'), env)).json();
+  assert.equal(one.en, undefined);
 });
