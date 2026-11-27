@@ -16,13 +16,14 @@ test('sends one JSON-mode request with all fields and keeps the Danish on gaps',
   const r = page('2026-nov-tilbagekald-af-oksekebab');
   const ai = fakeAI(() => ({ response: { title: 'Recall of beef kebab', lead: 'Dencon Foods A/S is recalling beef kebab…', stores: 'The product was sold at REMA 1000 and Nemlig.com.', reason: 'Bovine brain tissue was found.', action: '' } }));
   const en = await translateRecall(ai, r);
-  assert.equal(ai.calls.length, 1);
   assert.equal(ai.calls[0].model, TRANSLATE_MODEL);
   assert.equal(ai.calls[0].input.response_format.type, 'json_schema');
   assert.match(ai.calls[0].input.prompt, /hjernevæv fra kvæg/);
   assert.doesNotMatch(ai.calls[0].input.prompt, /EAN: 5705518183096/, 'raw product list is not sent');
   assert.equal(en.title, 'Recall of beef kebab');
-  assert.equal(en.action, r.action.text, 'empty translation of a non-empty field falls back to Danish');
+  assert.equal(ai.calls.length, 2, 'the empty action field is retried on its own');
+  assert.equal(ai.calls[1].input.response_format, undefined, 'retry uses a plain prompt');
+  assert.equal(en.action, r.action.text, 'still empty after the retry -> Danish kept for that field');
   assert.equal(en.hash, textHash(r));
 });
 
@@ -42,10 +43,34 @@ test('textHash changes only when the Danish text changes', () => {
   assert.notEqual(textHash(changed), h);
 });
 
-test('a reply that is still Danish counts as a failure (retried later)', async () => {
+test('echoed Danish (seen live on the Coronet recall) is retried field by field', async () => {
   const r = page('2026-nov-tilbagekald-smaakager-coronet');
-  const echo = fakeAI((input) => ({ response: JSON.parse(input.prompt.slice(input.prompt.indexOf('{'))) }));
-  await assert.rejects(translateRecall(echo, r), /untranslated/);
-  const empty = fakeAI(() => ({ response: { title: '', lead: '', stores: '', reason: '', action: '' } }));
-  await assert.rejects(translateRecall(empty, r), /untranslated/);
+  // JSON call echoes Danish; plain per-field calls translate.
+  const ai = fakeAI((input) => input.response_format
+    ? { response: JSON.parse(input.prompt.slice(input.prompt.indexOf('{'))) }
+    : { response: `EN: ${input.prompt.split('\n').pop().slice(0, 30)}` });
+  const en = await translateRecall(ai, r);
+  assert.ok(ai.calls.length >= 4, 'one structured call + one per non-empty field');
+  assert.match(en.title, /^EN: /);
+  assert.match(en.reason, /^EN: /);
+});
+
+test('still Danish after the retries counts as a failure (retried later)', async () => {
+  const r = page('2026-nov-tilbagekald-smaakager-coronet');
+  const echoAll = fakeAI((input) => input.response_format
+    ? { response: JSON.parse(input.prompt.slice(input.prompt.indexOf('{'))) }
+    : { response: input.prompt.split('\n').pop() });
+  await assert.rejects(translateRecall(echoAll, r), /untranslated/);
+  const broken = fakeAI(() => { throw new Error('AI down'); });
+  await assert.rejects(translateRecall(broken, r), /untranslated/);
+});
+
+test('a half-translated reply only retries the Danish fields (kebab title case)', async () => {
+  const r = page('2026-nov-tilbagekald-af-oksekebab');
+  const ai = fakeAI((input) => input.response_format
+    ? { response: { title: r.title, lead: 'L', stores: 'S', reason: 'R', action: 'A' } }
+    : { response: 'Recall of beef kebab' });
+  const en = await translateRecall(ai, r);
+  assert.equal(ai.calls.length, 2);
+  assert.equal(en.title, 'Recall of beef kebab');
 });

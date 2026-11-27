@@ -50,25 +50,54 @@ export async function translateRecall(ai, recall) {
     JSON.stringify(source),
   ].join('\n');
 
-  const out = await ai.run(TRANSLATE_MODEL, {
-    prompt,
-    max_tokens: 3000,
-    temperature: 0.1,
-    response_format: { type: 'json_schema', json_schema: SCHEMA },
-  });
-  let data = out?.response ?? out;
-  if (typeof data === 'string') {
-    const m = data.match(/\{[\s\S]*\}/);
-    data = JSON.parse(m ? m[0] : data);
+  // 1) All fields in one structured call.
+  let data = {};
+  try {
+    const out = await ai.run(TRANSLATE_MODEL, {
+      prompt,
+      max_tokens: 3000,
+      temperature: 0.1,
+      response_format: { type: 'json_schema', json_schema: SCHEMA },
+    });
+    data = out?.response ?? out;
+    if (typeof data === 'string') {
+      const m = data.match(/\{[\s\S]*\}/);
+      data = JSON.parse(m ? m[0] : data);
+    }
+  } catch {
+    data = {}; // fall through to field-by-field
   }
   const result = {};
   for (const f of FIELDS) {
     const v = data?.[f];
-    // Fall back to Danish for a missing field rather than showing nothing.
-    result[f] = typeof v === 'string' && (v.trim() || !source[f]) ? v.trim() : source[f];
+    result[f] = typeof v === 'string' && v.trim() ? v.trim() : source[f];
   }
-  // A reply that is still Danish is not a translation: fail so it's retried later.
-  const translatedSome = FIELDS.some((f) => source[f] && result[f] !== source[f]);
-  if (!translatedSome || result.reason === source.reason) throw new Error('model returned untranslated text');
+
+  // 2) Seen live: the model sometimes echoes the Danish back. Retry each
+  //    unchanged field on its own with a plain prompt (no JSON mode).
+  for (const f of FIELDS) {
+    if (!source[f] || result[f] !== source[f]) continue;
+    try {
+      const out = await ai.run(TRANSLATE_MODEL, {
+        prompt: [
+          'Translate the following Danish text into plain English for a consumer.',
+          'Translate "Tilbagekald" as "Recall". Keep product names, brands, store names, addresses, numbers and dates as written.',
+          'Reply with the English translation only, no quotes or comments.',
+          '',
+          source[f],
+        ].join('\n'),
+        max_tokens: 1500,
+        temperature: 0.1,
+      });
+      const raw = typeof out?.response === 'string' ? out.response : '';
+      const v = raw.trim().replace(/^["“]|["”]$/g, '');
+      if (v) result[f] = v;
+    } catch {
+      // keep Danish for this field
+    }
+  }
+
+  // Still Danish where it matters: fail so it's retried later.
+  if (source.reason && result.reason === source.reason) throw new Error('model returned untranslated text');
   return { ...result, model: TRANSLATE_MODEL, hash: textHash(recall), at: new Date().toISOString() };
 }

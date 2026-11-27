@@ -269,7 +269,7 @@ test('translation: 2 per run, after notifying, reused when unchanged, backs off 
   await KV.put('recalls', JSON.stringify(recalls));
   fail = true;
   const s2 = await poll(env, { fetchImpl });
-  assert.match(s2.translateError, /AI down/);
+  assert.match(s2.translateError, /untranslated/);
   order.length = 0;
   await poll(env, { fetchImpl });
   assert.equal(order.filter((x) => x === 'ai').length, 0, 'backed off');
