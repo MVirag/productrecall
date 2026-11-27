@@ -52,7 +52,7 @@
   :root {
     --bg: #121417;
     --surface: #1b1e22;
-    --surface-sunken: #0d0f11;
+    --surface-sunken: #242a30;
     --border: #343a41;
     --border-control: #8b929a;
     --ink: #eef0f2;
@@ -262,7 +262,10 @@ input[type="text"], input[type="date"] {
 .replay { margin-top: var(--space-5); }
 .linkbtn { font: inherit; background: none; border: 0; padding: var(--space-2) var(--space-1); min-height: var(--touch-target); color: var(--ink); text-decoration: underline; cursor: pointer; }
 .pre { white-space: pre-line; }
-.import { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-3); padding: var(--space-4); }
+.import { display: block; padding: var(--space-4); }
+.import dt { margin-top: var(--space-3); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.import dt:first-child { margin-top: 0; }
+.import dd { font-weight: 600; }
 
 /* States. Hover only where a pointer can hover; active for every input method. */
 @media (hover: hover) {
