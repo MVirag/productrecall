@@ -52,9 +52,13 @@ export function wordMatchesToken(word, token) {
     const last = word[word.length - 1];
     return token.startsWith(word + last + 'e') && token.length > word.length + 3;
   }
-  if (w.length >= 3) {
+  if (word.length === 3) {
+    // 3-letter words only at compound edges: "Hvedemel", "Pekingand", "melet",
+    // but not "rosted" for "ost" or "landet" for "and".
+    if (token.startsWith(word) || token.endsWith(word)) return true;
+  } else {
     // Watch word inside a compound: "mælk" in "letmælk", "mælkeprodukt", "sødmælken".
-    if (token.includes(w)) return true;
+    if (token.includes(w.length >= 4 ? w : word)) return true;
   }
   if (t.length >= 4) {
     // Compound watch word whose head is the token: "letmælk" vs "mælk",
