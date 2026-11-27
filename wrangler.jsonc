@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tilbagekald-alert",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  // Every 15 minutes (UTC). Fødevarestyrelsen publishes ~5-15 recalls a month.
+  "triggers": { "crons": ["*/15 * * * *"] },
+  // No id: `wrangler deploy` creates the KV namespace on the first deploy.
+  "kv_namespaces": [{ "binding": "KV" }],
+  "vars": {
+    // Contact URL sent to push services in the VAPID token. Set to your workers.dev URL.
+    "VAPID_SUBJECT": "https://tilbagekald-alert.workers.dev"
+  },
+  // Push (VAPID) keys are generated automatically and kept in KV.
+  // Optional secrets: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY (to pin keys),
+  // ADMIN_TOKEN (enables POST /api/admin/poll).
+  "observability": { "enabled": true }
+}
