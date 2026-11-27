@@ -1,6 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tilbagekald-alert",
+  "name": "productrecall",
+  // Keep the public https://productrecall.<subdomain>.workers.dev address on.
+  "workers_dev": true,
   "main": "src/worker.js",
   "compatibility_date": "2026-11-01",
   "assets": {

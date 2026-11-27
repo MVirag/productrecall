@@ -126,7 +126,7 @@ Optional settings (Worker → Settings → Variables and Secrets):
 `ADMIN_TOKEN` enables an immediate poll:
 
 ```bash
-curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" https://tilbagekald-alert.YOUR-SUBDOMAIN.workers.dev/api/admin/poll
+curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" https://productrecall.YOUR-SUBDOMAIN.workers.dev/api/admin/poll
 ```
 
 **On the phone:** open the Worker URL in Chrome → *Install app* (or ⋮ →
