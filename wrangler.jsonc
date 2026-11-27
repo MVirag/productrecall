@@ -14,6 +14,8 @@
   "triggers": { "crons": ["*/15 * * * *"] },
   // No id: `wrangler deploy` creates the KV namespace on the first deploy.
   "kv_namespaces": [{ "binding": "KV" }],
+  // Workers AI, used to translate recalls to English (free daily allowance).
+  "ai": { "binding": "AI" },
   "vars": {
     // Contact URL sent to push services in the VAPID token. Set to your workers.dev URL.
     "VAPID_SUBJECT": "https://tilbagekald-alert.workers.dev"

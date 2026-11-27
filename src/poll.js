@@ -5,6 +5,7 @@
 import { FEED_URL, parseRss, parseDetail, fromRssOnly } from './parse.js';
 import { decide, notificationFor } from '../public/shared/summary.js';
 import { sendPush } from './push.js';
+import { translateRecall, textHash } from './translate.js';
 
 export const KEYS = { state: 'state', recalls: 'recalls', subPrefix: 'sub:' };
 
@@ -12,6 +13,7 @@ const RSS_ITEMS = 40;          // only the head of the 300 KB feed matters
 const SEEN_MAX = 400;
 const RECALLS_MAX = 60;
 const DETAILS_PER_RUN = 6;     // free plan: 50 subrequests per invocation
+const TRANSLATE_PER_RUN = 2;   // Workers AI calls per run (English text)
 const SEED_DETAILS = 15;       // first run: fill the feed, notify nobody
 const MAX_ATTEMPTS = 3;
 const REFRESH_DAYS = 7;        // pages get "Opdateret ..." edits in the first days
@@ -124,12 +126,33 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
       recall = fromRssOnly(item); // give up on the page, still notify with RSS text
     }
     recall.fetchedAt = now.toISOString();
-    recall.firstSeen = recalls.find((r) => r.id === recall.id)?.firstSeen || now.toISOString();
+    const prev = recalls.find((r) => r.id === recall.id);
+    recall.firstSeen = prev?.firstSeen || now.toISOString();
+    if (prev?.en && prev.en.hash === textHash(recall)) recall.en = prev.en; // text unchanged
     upsert(recalls, recall);
     if (job.notify) toNotify.push(recall);
   }
 
   if (toNotify.length) summary.notified = await notifyAll(env, toNotify, { fetchImpl });
+
+  // English translations, after notifying so pushes are never delayed by AI.
+  let translated = 0;
+  if (env.AI) {
+    summary.translated = [];
+    const retryAfter = now.getTime() - 6 * 36e5; // back off 6 h after a failed translation
+    const todo = recalls.filter((x) => (!x.en || x.en.hash !== textHash(x)) && !(x.enError && Date.parse(x.enError.at) > retryAfter));
+    for (const r of todo.slice(0, TRANSLATE_PER_RUN)) {
+      try {
+        r.en = await translateRecall(env.AI, r);
+        delete r.enError;
+        summary.translated.push(r.id);
+      } catch (e) {
+        r.enError = { at: now.toISOString(), message: String(e.message || e).slice(0, 200) };
+        summary.translateError = r.enError.message;
+      }
+      translated++;
+    }
+  }
 
   state.lastPoll = now.toISOString();
   if (!summary.failed.length) state.lastError = null;
@@ -137,7 +160,7 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
   if (summary.newIds.length) state.lastNew = now.toISOString();
 
   await kv.put(KEYS.state, JSON.stringify(state));
-  if (work.length) await kv.put(KEYS.recalls, JSON.stringify(recalls));
+  if (work.length || translated) await kv.put(KEYS.recalls, JSON.stringify(recalls));
   return summary;
 }
 
@@ -149,7 +172,8 @@ export async function notifyAll(env, recalls, { fetchImpl = fetch } = {}) {
     for (const recall of recalls) {
       const d = decide(recall, sub.settings);
       if (!d.notify) continue;
-      const res = await sendPush(env, sub.subscription, notificationFor(recall, sub.settings), { fetchImpl });
+      const note = notificationFor(recall, sub.settings);
+      const res = await sendPush(env, sub.subscription, note, { fetchImpl, urgency: note.silent ? 'normal' : 'high' });
       if (res.ok) sent++;
       if (res.gone) {
         await env.KV.delete(sub.key);

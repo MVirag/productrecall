@@ -107,12 +107,13 @@ test('card summary and push text', () => {
     },
   );
   const n = notificationFor(kebab, { chains: ['Rema 1000'] });
-  assert.equal(n.title, "⚠ Din butik: Rema 1000 · Heat'n Eat Okse kebab");
-  assert.equal(n.body, '400 g · Bedst før 07.04.2028 +1 · Risikomateriale (kvæg) · Aflever i butikken eller kassér');
+  assert.equal(n.title, "🟡 Din butik: Rema 1000 · Heat'n Eat Okse kebab");
+  assert.equal(n.body, 'Langsigtet · 400 g · Bedst før 07.04.2028 +1 · Risikomateriale (kvæg) · Aflever i butikken eller kassér');
+  assert.equal(n.silent, true, 'long-term risk arrives quietly');
   assert.equal(n.url, '/#/recall/2026-nov-tilbagekald-af-oksekebab');
 
   const en = notificationFor(page('2026-nov-tilbagekald-af-ispinde'), { lang: 'en', chains: [] });
-  assert.match(en.title, /^Lidl · Gelatelli/);
+  assert.match(en.title, /^🟠 Lidl · Gelatelli/);
   assert.match(en.body, /Undeclared egg/);
   assert.match(en.body, /If allergic/);
 

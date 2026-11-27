@@ -1,10 +1,10 @@
 // Service worker: app-shell cache, offline recall list, push notifications.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `shell-${VERSION}`;
 const DATA = 'data';
 const SHELL_FILES = [
   '/', '/index.html', '/app.js', '/i18n.js', '/styles.css', '/manifest.webmanifest',
-  '/shared/chains.js', '/shared/words.js', '/shared/summary.js',
+  '/shared/chains.js', '/shared/words.js', '/shared/summary.js', '/shared/severity.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/badge-96.png',
 ];
 
@@ -57,6 +57,8 @@ self.addEventListener('push', (e) => {
     badge: '/icons/badge-96.png',
     image: d.image || undefined,
     data: { url: d.url || '/' },
+    silent: !!d.silent,      // low-severity recalls arrive without sound/vibration
+    renotify: !d.silent && !!d.tag,
   }));
 });
 
