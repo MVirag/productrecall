@@ -9,7 +9,8 @@
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.js",
     "icons": "node scripts/make-icons.mjs",
-    "fixtures": "node scripts/fetch-fixtures.mjs"
+    "fixtures": "node scripts/fetch-fixtures.mjs",
+    "vapid": "node scripts/vapid.mjs"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^2.0.0"
