@@ -101,7 +101,7 @@ time, dd, .tabular { font-variant-numeric: tabular-nums; }
 }
 .topbar :focus-visible { outline-color: var(--focus-on-bar); }
 .brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; text-decoration: none; min-height: var(--touch-target); }
-nav { display: flex; gap: var(--space-1); }
+nav { display: flex; gap: var(--space-1); margin-left: auto; }
 nav a {
   display: inline-flex; align-items: center; min-height: var(--touch-target); padding: 0 var(--space-3);
   text-decoration: none; font-weight: 600; border-radius: var(--radius-sm);

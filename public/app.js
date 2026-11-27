@@ -309,8 +309,6 @@ async function viewRecall(id) {
   const s = summarize(r, settings, settings.lang);
   const d = decide(r, settings);
   setTitle(s.product);
-  const replayMsg = h('p', { class: 'small', role: 'status' });
-  const sub = await currentSubscription().catch(() => null);
   const unsure = (r.uncertain || []).map((k) => STRINGS[settings.lang].unsureFields[k] || k);
   // English: show the machine translation unless the reader asked for the original.
   const en = settings.lang === 'en' && r.en && !showOriginal.has(r.id) ? r.en : null;
@@ -360,15 +358,6 @@ async function viewRecall(id) {
       unsure.length ? h('p', { class: 'muted small' }, `${t('unsure')}: ${unsure.join(', ')}.`) : null,
       r.raw?.product ? h('details', {}, h('summary', {}, t('rawText')),
         ...Object.entries(r.raw).filter(([, v]) => v).map(([k, v]) => h('pre', { 'data-k': k }, v))) : null,
-      sub ? h('div', { class: 'replay' },
-        h('button', {
-          class: 'btn', type: 'button',
-          onclick: async () => {
-            replayMsg.textContent = '…';
-            try { await api('/api/replay', { endpoint: sub.endpoint, id: r.id }); replayMsg.textContent = t('replaySent'); }
-            catch (e) { replayMsg.textContent = `${t('sendFailed')}: ${e.data?.detail || e.message}`; }
-          },
-        }, t('replay')), replayMsg) : null,
     ),
   );
   window.scrollTo(0, 0);
