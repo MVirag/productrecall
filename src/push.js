@@ -19,13 +19,27 @@ export function isValidSubscription(sub) {
   }
 }
 
-export function vapidFromEnv(env) {
-  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) throw new Error('VAPID keys are not configured');
-  return {
-    subject: env.VAPID_SUBJECT || 'https://tilbagekald-alert.workers.dev',
-    publicKey: env.VAPID_PUBLIC_KEY,
-    privateKey: env.VAPID_PRIVATE_KEY,
-  };
+const b64url = (u8) => btoa(String.fromCharCode(...u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+/**
+ * VAPID keys: from secrets if set, otherwise generated once and kept in KV,
+ * so a fresh deploy works without any manual key setup.
+ */
+export async function getVapid(env) {
+  const subject = env.VAPID_SUBJECT || 'https://tilbagekald-alert.workers.dev';
+  if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+    return { subject, publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY };
+  }
+  if (!env.KV) throw new Error('VAPID keys are not configured');
+  let keys = await env.KV.get('vapid', 'json');
+  if (!keys) {
+    const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+    const raw = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
+    const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+    keys = { publicKey: b64url(raw), privateKey: jwk.d, created: new Date().toISOString() };
+    await env.KV.put('vapid', JSON.stringify(keys));
+  }
+  return { subject, publicKey: keys.publicKey, privateKey: keys.privateKey };
 }
 
 /**
@@ -36,7 +50,7 @@ export async function sendPush(env, subscription, data, { ttl = 24 * 3600, urgen
   const payload = await buildPushPayload(
     { data: { ...data, sentAt: new Date().toISOString() }, options: { ttl, urgency } },
     { endpoint: subscription.endpoint, expirationTime: null, keys: subscription.keys },
-    vapidFromEnv(env),
+    await getVapid(env),
   );
   const res = await fetchImpl(subscription.endpoint, payload);
   let detail = '';

@@ -155,6 +155,25 @@ test('"only my stores" skips other chains; dead subscriptions are removed', asyn
   assert.equal(await KV.get('sub:x'), null, '410 Gone removes the subscription');
 });
 
+test('push keys are generated once and kept in KV when no secrets are set', async () => {
+  const KV = fakeKV();
+  const env = { KV, ASSETS: { fetch: () => new Response('') } };
+  const cfg1 = await (await worker.fetch(new Request('https://x.dev/api/config'), env)).json();
+  const cfg2 = await (await worker.fetch(new Request('https://x.dev/api/config'), env)).json();
+  assert.match(cfg1.vapidPublicKey, /^[A-Za-z0-9_-]{87}$/);
+  assert.equal(cfg1.vapidPublicKey, cfg2.vapidPublicKey);
+  // and they work: a push to a fake phone decrypts and verifies
+  const phone = fakeBrowser();
+  await KV.put('sub:a', JSON.stringify({ subscription: phone.subscription, settings: { mode: 'all', chains: [], words: [] } }));
+  const net = fakeNet({ rss: () => RSS_YESTERDAY });
+  await poll(env, { fetchImpl: net.fetchImpl });
+  const net2 = fakeNet({ rss: () => RSS });
+  await poll(env, { fetchImpl: net2.fetchImpl });
+  assert.equal(net2.pushes.length, 1);
+  verifyVapid(net2.pushes[0].init.headers.authorization, cfg1.vapidPublicKey, net2.pushes[0].url);
+  assert.ok(phone.decrypt(net2.pushes[0].init.body).title);
+});
+
 test('feed outage is recorded, not fatal', async () => {
   const KV = fakeKV();
   const s = await poll({ KV }, { fetchImpl: async () => new Response('down', { status: 503 }) });

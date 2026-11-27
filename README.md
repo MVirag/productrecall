@@ -109,35 +109,25 @@ site, `npm run icons` re-renders the PNG icons (needs Playwright + Chromium).
 
 ## Deployment (Cloudflare, free plan)
 
-1. Create a free Cloudflare account. Open **Workers & Pages** once so the
-   account gets a `*.workers.dev` subdomain.
-2. Log in with `npx wrangler login`, or set `CLOUDFLARE_API_TOKEN` (token
-   template *Edit Cloudflare Workers*).
-3. Create the KV namespace and paste its id into `wrangler.jsonc`:
-   ```bash
-   npx wrangler kv namespace create KV
-   ```
-4. Generate keys, then store each value as a secret:
-   ```bash
-   npm run vapid
-   ```
-   ```bash
-   npx wrangler secret put VAPID_PUBLIC_KEY
-   ```
-   ```bash
-   npx wrangler secret put VAPID_PRIVATE_KEY
-   ```
-   ```bash
-   npx wrangler secret put ADMIN_TOKEN
-   ```
-5. Set `VAPID_SUBJECT` in `wrangler.jsonc` to your Worker URL, then deploy:
-   ```bash
-   npm run deploy
-   ```
-6. Run the first poll right away instead of waiting up to 15 minutes:
-   ```bash
-   curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" https://tilbagekald-alert.YOUR-SUBDOMAIN.workers.dev/api/admin/poll
-   ```
+**From GitHub (no command line):**
+
+1. In the Cloudflare dashboard: **Workers & Pages → Create → Import a
+   repository**, pick this repository.
+2. Keep the defaults: build command empty, deploy command `npx wrangler deploy`,
+   production branch `main`.
+3. Deploy. Wrangler creates the KV namespace automatically, and the app
+   generates its own push (VAPID) keys on first use and stores them in KV.
+4. The first recall check runs within 15 minutes. Every push to `main`
+   redeploys.
+
+**From the command line:** `npx wrangler login`, then `npm run deploy`.
+
+Optional settings (Worker → Settings → Variables and Secrets):
+`ADMIN_TOKEN` enables an immediate poll:
+
+```bash
+curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" https://tilbagekald-alert.YOUR-SUBDOMAIN.workers.dev/api/admin/poll
+```
 
 **On the phone:** open the Worker URL in Chrome → *Install app* (or ⋮ →
 *Install app*) → open the app → *Indstillinger* → *Slå notifikationer til* →
@@ -149,14 +139,14 @@ recall.
 
 | Name | Kind | Purpose |
 |---|---|---|
-| `VAPID_PUBLIC_KEY` | secret | Web Push public key (base64url, served to the app) |
-| `VAPID_PRIVATE_KEY` | secret | Web Push private key (base64url `d`) |
+| `VAPID_PUBLIC_KEY` | optional secret | Pin the Web Push public key (otherwise generated and kept in KV) |
+| `VAPID_PRIVATE_KEY` | optional secret | Pin the Web Push private key (base64url `d`) |
 | `VAPID_SUBJECT` | var | Contact URL sent to push services (your Worker URL) |
-| `ADMIN_TOKEN` | secret | Protects `POST /api/admin/poll` |
-| `KV` | binding | Workers KV namespace |
+| `ADMIN_TOKEN` | optional secret | Enables `POST /api/admin/poll` |
+| `KV` | binding | Workers KV namespace (created automatically on first deploy) |
 
-Changing the VAPID keys invalidates existing subscriptions: turn notifications
-off and on again in the app.
+Changing the VAPID keys (or deleting the `vapid` KV entry) invalidates existing
+subscriptions: turn notifications off and on again in the app.
 
 ## API
 

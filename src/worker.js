@@ -2,7 +2,7 @@
 // and the 15-minute Cron Trigger that polls Fødevarestyrelsen.
 
 import { poll, loadState, loadRecalls, KEYS } from './poll.js';
-import { sendPush, isValidSubscription } from './push.js';
+import { sendPush, isValidSubscription, getVapid } from './push.js';
 import { notificationFor } from '../public/shared/summary.js';
 import { DEFAULT_CHAINS } from '../public/shared/chains.js';
 
@@ -55,7 +55,8 @@ async function handleApi(request, env, ctx, url) {
   const method = request.method;
 
   if (path === '/api/config' && method === 'GET') {
-    return json({ vapidPublicKey: env.VAPID_PUBLIC_KEY || null, defaultChains: DEFAULT_CHAINS });
+    const vapid = await getVapid(env).catch(() => null);
+    return json({ vapidPublicKey: vapid?.publicKey || null, defaultChains: DEFAULT_CHAINS });
   }
 
   if (path === '/api/status' && method === 'GET') {
@@ -149,6 +150,7 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    await getVapid(env); // create push keys on the first run after deploy
     const summary = await poll(env);
     console.log(JSON.stringify({ cron: event.cron, ...summary }));
   },
