@@ -125,7 +125,9 @@ test('first run seeds silently, a new recall is pushed once and decrypts correct
   assert.equal(init.headers['content-encoding'], 'aes128gcm');
   verifyVapid(init.headers.authorization, env.VAPID_PUBLIC_KEY, url);
   const msg = phone.decrypt(init.body);
-  assert.equal(msg.title, '⚠ Din butik: Lidl · FAVORINA Pebernødder, 400 g +12 flere');
+  assert.equal(msg.title, '🟡 Din butik: Lidl · FAVORINA Pebernødder, 400 g +12 flere');
+  assert.equal(init.headers.urgency, 'normal', 'mycotoxins are not urgent');
+  assert.equal(msg.silent, true);
   assert.match(msg.body, /Bedst før 30\.09\.2026 \+2 · Mykotoksiner · Kassér/);
   assert.equal(msg.url, '/#/recall/2026-nov-tilbagekald-smaakager-coronet');
 
@@ -194,8 +196,8 @@ test('API: subscribe, settings, test push and replay', async () => {
     const call = (path, body) => worker.fetch(new Request(`https://x.dev${path}`, body ? { method: 'POST', body: JSON.stringify(body) } : {}), env);
 
     assert.equal((await call('/api/subscribe', { subscription: { endpoint: 'https://evil.example/x', keys: phone.subscription.keys } })).status, 400);
-    const sub = await (await call('/api/subscribe', { subscription: phone.subscription, settings: { chains: ['Rema 1000'], mode: 'mine', words: ['kebab'], lang: 'en', extra: 'x' } })).json();
-    assert.deepEqual(sub.settings, { chains: ['Rema 1000'], mode: 'mine', words: ['kebab'], lang: 'en' });
+    const sub = await (await call('/api/subscribe', { subscription: phone.subscription, settings: { chains: ['Rema 1000'], mode: 'mine', words: ['kebab'], lang: 'en', extra: 'x', allergens: ['æg', 'bogus'], vulnerable: true } })).json();
+    assert.deepEqual(sub.settings, { chains: ['Rema 1000'], mode: 'mine', words: ['kebab'], lang: 'en', allergens: ['æg'], vulnerable: true });
 
     const t = await call('/api/test', { endpoint: phone.subscription.endpoint });
     assert.equal(t.status, 200);
@@ -209,8 +211,8 @@ test('API: subscribe, settings, test push and replay', async () => {
     const r = await call('/api/replay', { endpoint: phone.subscription.endpoint, id: '2026-nov-tilbagekald-af-oksekebab' });
     assert.equal(r.status, 200);
     const msg = phone.decrypt(net.pushes.at(-1).init.body);
-    assert.equal(msg.title, "⚠ Your store: Rema 1000 · Heat'n Eat Okse kebab");
-    assert.match(msg.body, /^400 g · Best before 07\.04\.2028 \+1 · Prohibited cattle material · Return to store or discard$/);
+    assert.equal(msg.title, "🟡 Your store: Rema 1000 · Heat'n Eat Okse kebab");
+    assert.match(msg.body, /^Long-term · 400 g · Best before 07\.04\.2028 \+1 · Prohibited cattle material · Return to store or discard$/);
 
     const list = await (await call('/api/recalls')).json();
     assert.ok(list.recalls.length >= 6);
@@ -222,4 +224,53 @@ test('API: subscribe, settings, test push and replay', async () => {
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('translation: 2 per run, after notifying, reused when unchanged, backs off on failure', async () => {
+  const KV = fakeKV();
+  const order = [];
+  let fail = false;
+  const AI = { run: async (model, input) => {
+    order.push('ai');
+    if (fail) throw new Error('AI down');
+    const src = JSON.parse(input.prompt.slice(input.prompt.indexOf('{')));
+    return { response: Object.fromEntries(Object.entries(src).map(([k, v]) => [k, v ? `EN:${v.slice(0, 20)}` : ''])) };
+  } };
+  const env = { KV, AI, ...vapidKeys() };
+  const phone = fakeBrowser();
+  await KV.put('sub:a', JSON.stringify({ subscription: phone.subscription, settings: { mode: 'all', chains: [], words: [] } }));
+  let feed = RSS_YESTERDAY;
+  const net = fakeNet({ rss: () => feed });
+  const fetchImpl = async (url, init) => { if (String(url).startsWith('https://fcm')) order.push('push'); return net.fetchImpl(url, init); };
+
+  const s1 = await poll(env, { fetchImpl });
+  assert.equal(s1.translated.length, 2);
+  let recalls = await loadRecalls(KV);
+  assert.equal(recalls.filter((r) => r.en).length, 2);
+  assert.match(recalls.find((r) => r.en).en.title, /^EN:/);
+
+  feed = RSS; // new recall -> push happens before any translation in that run
+  order.length = 0;
+  await poll(env, { fetchImpl });
+  assert.equal(order[0], 'push');
+  assert.ok(order.slice(1).every((x) => x === 'ai'));
+
+  // keep polling until everything is translated; refetched pages keep their translation
+  for (let i = 0; i < 8; i++) await poll(env, { fetchImpl });
+  recalls = await loadRecalls(KV);
+  assert.ok(recalls.every((r) => r.en), 'all translated');
+  order.length = 0;
+  await poll(env, { fetchImpl });
+  assert.equal(order.filter((x) => x === 'ai').length, 0, 'nothing retranslated when text is unchanged');
+
+  // failure: recorded on the recall, not retried for 6 hours
+  recalls[0].en = null;
+  await KV.put('recalls', JSON.stringify(recalls));
+  fail = true;
+  const s2 = await poll(env, { fetchImpl });
+  assert.match(s2.translateError, /AI down/);
+  order.length = 0;
+  await poll(env, { fetchImpl });
+  assert.equal(order.filter((x) => x === 'ai').length, 0, 'backed off');
+  assert.equal((await loadState(KV)).lastError, null, 'translation errors do not flag the feed as broken');
 });

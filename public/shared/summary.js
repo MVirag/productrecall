@@ -3,6 +3,7 @@
 
 import { matchMyStores } from './chains.js';
 import { matchWords } from './words.js';
+import { severity, severityText, LEVEL_LABELS } from './severity.js';
 
 export const REASON_LABELS = {
   listeria: { da: 'Listeria', en: 'Listeria' },
@@ -100,7 +101,10 @@ export function summarize(recall, settings = {}, lang = settings.lang || 'da') {
     ? p.name + (extra > 0 ? (lang === 'en' ? ` +${extra} more` : ` +${extra} flere`) : '')
     : recall.title.replace(/^tilbagekald(?:else)?\s*(?:af|[-:–])?\s*/iu, '');
   const stores = matchMyStores(recall.stores, myChains);
+  const sev = severity(recall, settings);
   return {
+    severity: sev,
+    severityText: severityText(sev, lang),
     store: storeLabel(recall, myChains, lang),
     product,
     size: p?.size && !p.name?.includes(p.size) ? p.size : '',
@@ -115,25 +119,32 @@ export function summarize(recall, settings = {}, lang = settings.lang || 'da') {
 
 /**
  * Should this recall notify this user, and why?
- * settings = { chains: [], mode: 'all' | 'mine', words: [] }
+ * settings = { chains: [], mode: 'all' | 'mine', words: [], allergens: [], vulnerable: false }
+ * In "mine" mode a household allergen hit notifies like a watch word does.
  */
 export function decide(recall, settings = {}) {
   const words = matchWords(recall, settings.words);
   const stores = matchMyStores(recall.stores, settings.chains);
-  const mineOrNationwide = stores.mine;
-  const notify = settings.mode === 'mine' ? mineOrNationwide || words.length > 0 : true;
-  return { notify, words, stores, highlight: stores.direct.length > 0 || stores.viaGroup.length > 0 || words.length > 0 };
+  const sev = severity(recall, settings);
+  const notify = settings.mode === 'mine' ? stores.mine || words.length > 0 || sev.allergens.length > 0 : true;
+  const highlight = stores.direct.length > 0 || stores.viaGroup.length > 0 || words.length > 0 || sev.personal;
+  return { notify, words, stores, severity: sev, highlight };
 }
+
+const LEVEL_EMOJI = { acute: '🔴', other: '🔴', allergy: '🟠', longterm: '🟡', quality: '⚪' };
 
 /** Push notification payload. */
 export function notificationFor(recall, settings = {}) {
   const lang = settings.lang || 'da';
   const s = summarize(recall, settings, lang);
   const d = decide(recall, settings);
-  const flag = s.mine ? (lang === 'en' ? '⚠ Your store: ' : '⚠ Din butik: ') : d.words.length ? '⚠ ' : '';
-  const title = `${flag}${s.store} · ${s.product}`;
-  const body = [s.size, s.dates, s.reason, s.action].filter(Boolean).join(' · ');
+  const flag = s.mine ? (lang === 'en' ? 'Your store: ' : 'Din butik: ') : '';
+  const sev = d.severity;
+  const title = `${LEVEL_EMOJI[sev.level]} ${flag}${s.store} · ${s.product}`;
+  const level = sev.allergens.length ? s.severityText : LEVEL_LABELS[sev.level].short[lang];
+  const body = [level, s.size, s.dates, s.reason, s.action].filter(Boolean).join(' · ');
   return {
+    silent: !sev.urgent,
     title: title.slice(0, 120),
     body: body.slice(0, 240),
     tag: recall.id,

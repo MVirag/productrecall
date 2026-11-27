@@ -1,6 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tilbagekald-alert",
+  "name": "productrecall",
+  // Keep the public https://productrecall.<subdomain>.workers.dev address on.
+  "workers_dev": true,
   "main": "src/worker.js",
   "compatibility_date": "2026-11-01",
   "assets": {
@@ -12,6 +14,8 @@
   "triggers": { "crons": ["*/15 * * * *"] },
   // No id: `wrangler deploy` creates the KV namespace on the first deploy.
   "kv_namespaces": [{ "binding": "KV" }],
+  // Workers AI, used to translate recalls to English (free daily allowance).
+  "ai": { "binding": "AI" },
   "vars": {
     // Contact URL sent to push services in the VAPID token. Set to your workers.dev URL.
     "VAPID_SUBJECT": "https://tilbagekald-alert.workers.dev"
@@ -19,5 +23,12 @@
   // Push (VAPID) keys are generated automatically and kept in KV.
   // Optional secrets: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY (to pin keys),
   // ADMIN_TOKEN (enables POST /api/admin/poll).
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Trial ("preview") builds that Cloudflare makes for pull-request branches.
+  // No cron there, and deliberately no KV: a preview can never read or push
+  // to real subscriptions. Production deploys from main ignore this block.
+  "previews": {
+    "vars": { "VAPID_SUBJECT": "https://productrecall.workers.dev" },
+    "ai": { "binding": "AI" }
+  }
 }
