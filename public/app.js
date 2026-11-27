@@ -162,15 +162,15 @@ function setTitle(text) {
   document.title = text ? `${text} · ${t('appName')}` : t('appName');
 }
 
-// Severity: shape icon + words, coloured by level. `variant` is 'strip' (feed card) or 'banner' (detail).
-// A banner can carry one short note under the label (e.g. who is especially at risk).
-function sevBadge(s, variant = 'strip', note = null) {
+// Detail screen: the recall as a door sticker, a die-cut badge holding the level's shape plus the verdict.
+// A note under the verdict says who is especially at risk, when the notice names them.
+function sevSticker(s, note = null) {
   const lvl = s.severity.level;
-  const label = [icon(lvl, { md: true }), h('span', {}, s.severityText)];
-  if (!note) return h('p', { class: `sev sev-${lvl} sev-${variant}` }, ...label);
-  return h('div', { class: `sev sev-${lvl} sev-${variant} sev-has-note` },
-    h('p', { class: 'sev-row' }, ...label),
-    h('p', { class: 'sev-note' }, icon('users'), h('span', {}, note)));
+  return h('div', { class: `sticker sev-${lvl}` },
+    h('div', { class: 'die' }, icon(lvl)),
+    h('div', { class: 'sticker-text' },
+      h('p', { class: 'verdict' }, s.severityText),
+      note ? h('p', { class: 'sticker-note' }, icon('users'), h('span', {}, note)) : null));
 }
 
 function badgeFor(s, d) {
@@ -207,25 +207,27 @@ function thumbSrc(url, width = 160) {
 function card(r) {
   const s = summarize(r, settings, settings.lang);
   const d = decide(r, settings);
-  const main = h('div', { class: `card-main${r.image ? ' has-photo' : ''}` },
-    r.image ? h('img', {
-      class: 'thumb', src: thumbSrc(r.image), alt: '', width: 72, height: 72, loading: 'lazy', referrerpolicy: 'no-referrer',
-      onerror: (e) => { e.target.parentElement.classList.remove('has-photo'); e.target.remove(); },
-    }) : null,
-    h('div', { class: 'card-text' },
-      h('h2', { class: 'product' }, s.product),
-      reasonTags(r, s),
-      [s.size, s.dates].filter(Boolean).length ? h('p', { class: 'facts-line' }, [s.size, s.dates].filter(Boolean).join(' · ') ) : null));
+  const lvl = s.severity.level;
+  const badge = badgeFor(s, d);
+  const meta = [s.size, s.dates].filter(Boolean).join(' · ');
   return h('li', {},
-    h('a', { class: `card${d.highlight ? ' card-mine' : ''}`, href: `#/recall/${encodeURIComponent(r.id)}` },
-      sevBadge(s, 'strip'),
-      h('div', { class: 'card-body' },
-        main,
+    h('a', { class: `card sev-${lvl}${d.highlight ? ' card-mine' : ''}${r.image ? ' has-photo' : ''}`, href: `#/recall/${encodeURIComponent(r.id)}` },
+      h('div', { class: 'die' }, icon(lvl)),
+      h('div', { class: 'card-content' },
+        h('p', { class: 'verdict' }, s.severityText),
+        h('h2', { class: 'product' }, s.product),
+        reasonTags(r, s),
+        meta ? h('p', { class: 'facts-line' }, meta) : null,
         h('p', { class: 'card-action' }, icon('done'), s.action),
-        badgeFor(s, d) ? h('div', { class: 'card-tags' }, badgeFor(s, d)) : null,
-        h('div', { class: 'card-meta' },
-          h('span', { class: 'store' }, s.store),
-          h('time', { datetime: r.published }, fmtDate(r.published))))));
+        badge ? h('div', { class: 'card-tags' }, badge) : null),
+      // The feed asks for a small copy of the photo; if it will not load, the card simply has no photo.
+      r.image ? h('img', {
+        class: 'thumb', src: thumbSrc(r.image), alt: '', width: 64, height: 64, loading: 'lazy', referrerpolicy: 'no-referrer',
+        onerror: (e) => { e.target.closest('.card').classList.remove('has-photo'); e.target.remove(); },
+      }) : null,
+      h('div', { class: 'card-meta' },
+        h('span', { class: 'store' }, s.store),
+        h('time', { datetime: r.published }, fmtDate(r.published)))));
 }
 
 async function viewFeed() {
@@ -379,7 +381,7 @@ async function viewRecall(id) {
       h('button', { type: 'button', class: 'btn btn-quiet icon-btn', 'aria-label': t('share'), onclick: () => share({ title: s.product, text: shareText, url: recallUrl }, shareMsg) }, icon('share'))),
     shareMsg,
     h('article', { class: 'detail' },
-      sevBadge(s, 'banner', s.severity.vulnerableMentioned ? vulnerableText(settings.lang) : null),
+      sevSticker(s, s.severity.vulnerableMentioned ? vulnerableText(settings.lang) : null),
       quoteBox,
       h('div', { class: `detail-head${thumb ? ' has-photo' : ''}` },
         thumb,

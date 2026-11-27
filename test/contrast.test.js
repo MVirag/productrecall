@@ -16,20 +16,26 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
 
 const T = 4.5, U = 3;
 const PAIRS = [
+  // text on the three grounds
   ['ink', 'bg', T], ['ink', 'surface', T], ['ink', 'surface-sunken', T],
   ['ink-muted', 'bg', T], ['ink-muted', 'surface', T], ['ink-muted', 'surface-sunken', T],
-  ['on-bar', 'bar', T], ['on-brand', 'brand', T], ['on-brand', 'brand-hover', T],
-  ['sev-acute', 'surface', T], ['sev-acute', 'bg', T], ['sev-acute', 'sev-acute-tint', T], ['on-sev-solid', 'sev-acute-solid', T],
-  ['sev-allergy', 'surface', T], ['sev-allergy', 'sev-allergy-tint', T], ['on-sev-solid', 'sev-allergy-solid', T],
-  ['sev-longterm', 'surface', T], ['sev-longterm', 'sev-longterm-tint', T], ['on-sev-solid', 'sev-longterm', T],
-  ['sev-quality', 'surface', T], ['sev-quality', 'sev-quality-tint', T], ['on-sev-solid', 'sev-quality', T],
-  ['ink', 'surface-sunken', T],
-  ['mine', 'surface', T], ['mine', 'bg', T], ['mine', 'mine-tint', T],
+  // app bar, nav pills (current is a slab: bar text on on-bar), primary button
+  ['on-bar', 'bar', T], ['on-bar', 'bar-hover', T], ['on-bar', 'bar-active', T], ['bar', 'on-bar', T],
+  ['on-brand', 'brand', T], ['on-brand', 'brand-hover', T], ['on-brand', 'brand-active', T],
+  // level text on the sticker and on its tag tint; solid tags and badge glyphs on the level fill
+  // the health sticker keeps its tint on hover and press
+  ['ink', 'health-tint', T], ['ink-muted', 'health-tint', T], ['ink-muted', 'health-tint-hover', T], ['ink-muted', 'health-tint-active', T],
+  ['health', 'health-tint-hover', T], ['health', 'health-tint-active', T],
+  ['health', 'surface', T], ['health', 'bg', T], ['health', 'health-tint', T], ['on-health', 'health-fill', T],
+  ['allergy', 'surface', T], ['allergy', 'bg', T], ['allergy', 'allergy-tint', T], ['on-allergy', 'allergy-fill', T],
+  ['notacute', 'surface', T], ['notacute', 'bg', T], ['notacute', 'notacute-tint', T], ['on-notacute', 'notacute-fill', T],
+  ['unfit', 'surface', T], ['unfit', 'bg', T], ['unfit', 'unfit-tint', T], ['on-unfit', 'unfit-fill', T],
   ['ok', 'surface', T], ['ok', 'ok-tint', T],
+  // control edges, focus rings, sticker frames
   ['border-control', 'surface', U], ['border-control', 'bg', U], ['border-control', 'surface-sunken', U],
   ['focus', 'surface', U], ['focus', 'bg', U], ['focus-on-bar', 'bar', U],
-  ['mine', 'surface', U], ['mine', 'bg', U], ['sev-acute', 'sev-acute-tint', U],
-  ['brand', 'bg', U], ['brand', 'surface', U], ['sev-allergy-solid', 'surface', U],
+  ['frame', 'surface', U], ['frame', 'bg', U], ['health-fill', 'surface', U], ['health-fill', 'bg', U],
+  ['brand', 'bg', U], ['brand', 'surface', U],
 ];
 
 for (const [theme, tok] of Object.entries(THEMES)) {
