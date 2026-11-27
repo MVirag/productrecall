@@ -207,12 +207,25 @@ statement, and shows the sentence as a quote on the detail page.
 
 ## Translation
 
-The Worker translates up to 2 recalls per run, after sending any
-notifications, with `@cf/meta/llama-3.3-70b-instruct-fp8-fast` in JSON mode.
-Translations are stored with the recall and redone only when the Danish text
-changes. A failed translation is retried after 6 hours; meanwhile the app
-shows the Danish text. Product names, stores, dates, EAN and lot codes are
-kept as written.
+When the app is in English, recalls are shown machine-translated by
+Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`). On
+27 Nov 2026 the model returned Danish unchanged for some recalls and, once,
+an invented recall (a SuperBrugsen chicken product) for a REMA 1000 peas
+recall. So translation is treated as untrusted:
+
+- Title, lead, stores, reason and advice are translated **one field at a
+  time** with a plain prompt (no JSON mode).
+- **Every field is checked** before it's used: it must be English (not
+  Danish), keep every number from the original (EAN, dates, sizes), and
+  name no store or chain that isn't in the original. A field that fails
+  keeps Fødevarestyrelsen's Danish text.
+- Translations carry a version. The API only serves translations made and
+  checked by the current version, so bumping `TRANSLATE_VERSION` hides all
+  older ones immediately and they are redone.
+- Up to 2 recalls are translated per run, after notifications are sent. A
+  recall where no field passed is retried after 6 hours.
+- The product table, store chips, dates and the quoted risk sentence are
+  never machine-translated.
 
 ## Non-food recalls (checked 27 Nov 2026)
 
@@ -240,8 +253,9 @@ kept as written.
   end of a word; 2-letter words ("æg") match only whole words, inflections and
   clear compounds.
 - "Har jeg den?" compares exact dates and EANs; it can't compare lot numbers.
-- Translations are machine-made and can be wrong; the "Show original" button
-  shows the Danish text. Workers AI has a free daily allowance that this
+- Translations are machine-made. The checks catch Danish, missing numbers and
+  invented stores, but not every wrong wording; "Show original" shows the
+  Danish text, which is always the reference. Workers AI has a free daily allowance that this
   volume (~10 recalls a month) stays far below, but this wasn't measured.
 - Risk categories rely on matching Fødevarestyrelsen's wording; unusual
   wording lands in "Risiko ikke angivet" rather than a wrong category.

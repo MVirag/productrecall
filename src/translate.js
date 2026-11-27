@@ -1,11 +1,18 @@
 // Danish -> English translation of a recall with Cloudflare Workers AI.
-// One model call per recall; the result is stored with the recall and only
-// redone when the Danish text changes (pages get "Opdateret" edits).
+//
+// Seen live (27 Nov 2026): the model can return Danish unchanged, and once
+// returned an invented recall (a SuperBrugsen chicken product) as the
+// "translation" of a REMA 1000 peas recall. So every translated field is
+// checked before use, and any field that fails keeps Fødevarestyrelsen's
+// Danish text. A translation is never more trustworthy than its checks.
+
+import { detectStores } from '../public/shared/chains.js';
 
 export const TRANSLATE_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-// The raw product list is not translated: it's mostly names, dates and codes,
-// the app shows it as a table with English labels, and on big recalls it made
-// the answer too long.
+// Bump to discard every stored translation made by older, weaker code.
+export const TRANSLATE_VERSION = 3;
+// The raw product list is not translated: names, dates and codes are shown
+// as a table with English labels anyway.
 const FIELDS = ['title', 'lead', 'stores', 'reason', 'action'];
 
 function sourceOf(recall) {
@@ -18,9 +25,9 @@ function sourceOf(recall) {
   };
 }
 
-/** Small stable hash (FNV-1a) of the Danish text, to skip unchanged recalls. */
+/** Stable hash (FNV-1a) of the Danish text + translator version. */
 export function textHash(recall) {
-  const s = JSON.stringify(sourceOf(recall));
+  const s = `v${TRANSLATE_VERSION}:${JSON.stringify(sourceOf(recall))}`;
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -29,75 +36,87 @@ export function textHash(recall) {
   return (h >>> 0).toString(16);
 }
 
-const SCHEMA = {
-  type: 'object',
-  properties: Object.fromEntries(FIELDS.map((f) => [f, { type: 'string' }])),
-  required: FIELDS,
-};
+/** A stored translation is shown only if it was made (and checked) by this version. */
+export function isCurrentTranslation(en) {
+  return !!en && en.version === TRANSLATE_VERSION;
+}
+
+// ---------------------------------------------------------------- checks
+
+const DA_WORDS = /(?<![\p{L}])(?:og|er|det|den|af|til|på|med|der|som|ikke|har|kan|bør|du|en|et|fra|ved|hvor|eller|produktet|produkterne|butikken|solgt|tilbagekald\p{L}*)(?![\p{L}])/giu;
+const EN_WORDS = /\b(?:the|and|is|are|of|to|in|on|with|that|not|has|have|can|should|you|from|at|where|or|product|products|store|stores|sold|recall\w*)\b/gi;
+
+export function looksDanish(text) {
+  const da = (text.match(DA_WORDS) || []).length + (text.match(/[æøå]/gi) || []).length / 3;
+  const en = (text.match(EN_WORDS) || []).length;
+  return da > en;
+}
+
+const numbers = (s) => (s.match(/\d+/g) || []).filter((n) => n.length >= 2);
 
 /**
- * Translate a recall. Returns { title, lead, stores, reason, action,
- * model, hash, at } or throws. `ai` is the Workers AI binding (env.AI).
+ * Is `out` an acceptable English rendering of `src`? Returns '' when it
+ * passes, otherwise the reason it was rejected.
+ */
+export function checkTranslation(src, out) {
+  if (!out || !out.trim()) return 'empty';
+  if (out.trim() === src.trim()) return 'unchanged';
+  if (looksDanish(out)) return 'not English';
+  const s = detectStores(src);
+  const known = new Set([...s.chains, ...s.groups]);
+  const o = detectStores(out);
+  const invented = [...o.chains, ...o.groups].filter((c) => !known.has(c));
+  if (invented.length) return `stores not in the original: ${invented.join(', ')}`;
+  const missing = numbers(src).filter((n) => !out.includes(n));
+  if (missing.length) return `numbers missing: ${missing.slice(0, 3).join(', ')}`;
+  const ratio = out.length / Math.max(1, src.length);
+  if (src.length > 40 && (ratio < 0.5 || ratio > 2.2)) return 'length differs too much';
+  return '';
+}
+
+// ---------------------------------------------------------------- translate
+
+function promptFor(text) {
+  return [
+    'Translate the following Danish text from a Danish food recall notice into plain English for a consumer.',
+    'Translate "Tilbagekald" as "Recall". Keep product names, brands, store names, addresses, numbers and dates exactly as written.',
+    'Translate only what is there. Do not add, remove or invent anything.',
+    'Reply with the English translation only, no quotes or comments.',
+    '',
+    text,
+  ].join('\n');
+}
+
+/**
+ * Translate a recall field by field. Returns { title, lead, stores, reason,
+ * action, checked: { field: true | reason }, model, version, hash, at }.
+ * Fields that fail a check keep the Danish text. Throws if nothing passed.
  */
 export async function translateRecall(ai, recall) {
   const source = sourceOf(recall);
-  const prompt = [
-    'You translate Danish food recall notices from the Danish Veterinary and Food Administration into plain, clear English for consumers living in Denmark.',
-    'Translate every value of the JSON object below from Danish to English. Keep the same keys.',
-    'Translate "Tilbagekald"/"tilbagekalder" as "Recall"/"is recalling" (never "withdrawal").',
-    'Rules: keep product names, brand names, store/chain names, addresses, EAN numbers, lot codes and dates exactly as written; keep line breaks; do not add, drop or explain anything; an empty string stays empty.',
-    '',
-    JSON.stringify(source),
-  ].join('\n');
-
-  // 1) All fields in one structured call.
-  let data = {};
-  try {
-    const out = await ai.run(TRANSLATE_MODEL, {
-      prompt,
-      max_tokens: 3000,
-      temperature: 0.1,
-      response_format: { type: 'json_schema', json_schema: SCHEMA },
-    });
-    data = out?.response ?? out;
-    if (typeof data === 'string') {
-      const m = data.match(/\{[\s\S]*\}/);
-      data = JSON.parse(m ? m[0] : data);
-    }
-  } catch {
-    data = {}; // fall through to field-by-field
-  }
   const result = {};
+  const checked = {};
   for (const f of FIELDS) {
-    const v = data?.[f];
-    result[f] = typeof v === 'string' && v.trim() ? v.trim() : source[f];
-  }
-
-  // 2) Seen live: the model sometimes echoes the Danish back. Retry each
-  //    unchanged field on its own with a plain prompt (no JSON mode).
-  for (const f of FIELDS) {
-    if (!source[f] || result[f] !== source[f]) continue;
+    result[f] = source[f];
+    if (!source[f]) continue;
+    let out = '';
     try {
-      const out = await ai.run(TRANSLATE_MODEL, {
-        prompt: [
-          'Translate the following Danish text into plain English for a consumer.',
-          'Translate "Tilbagekald" as "Recall". Keep product names, brands, store names, addresses, numbers and dates as written.',
-          'Reply with the English translation only, no quotes or comments.',
-          '',
-          source[f],
-        ].join('\n'),
-        max_tokens: 1500,
-        temperature: 0.1,
-      });
-      const raw = typeof out?.response === 'string' ? out.response : '';
-      const v = raw.trim().replace(/^["“]|["”]$/g, '');
-      if (v) result[f] = v;
-    } catch {
-      // keep Danish for this field
+      const res = await ai.run(TRANSLATE_MODEL, { prompt: promptFor(source[f]), max_tokens: 1500, temperature: 0 });
+      out = typeof res?.response === 'string' ? res.response.trim().replace(/^["“]|["”]$/g, '') : '';
+    } catch (e) {
+      checked[f] = `error: ${String(e.message || e).slice(0, 80)}`;
+      continue;
+    }
+    const problem = checkTranslation(source[f], out);
+    if (problem) checked[f] = problem;
+    else {
+      result[f] = out;
+      checked[f] = true;
     }
   }
-
-  // Still Danish where it matters: fail so it's retried later.
-  if (source.reason && result.reason === source.reason) throw new Error('model returned untranslated text');
-  return { ...result, model: TRANSLATE_MODEL, hash: textHash(recall), at: new Date().toISOString() };
+  if (!FIELDS.some((f) => checked[f] === true)) {
+    const why = FIELDS.filter((f) => source[f]).map((f) => `${f}: ${checked[f]}`).join('; ');
+    throw new Error(`no field passed the checks (${why})`.slice(0, 300));
+  }
+  return { ...result, checked, model: TRANSLATE_MODEL, version: TRANSLATE_VERSION, hash: textHash(recall), at: new Date().toISOString() };
 }
