@@ -308,7 +308,6 @@ async function viewRecall(id) {
       tx.lead ? h('p', { class: 'lead' }, tx.lead) : null,
       r.products?.length ? checker(r) : null,
       r.products?.length ? h('section', {}, h('h2', {}, `${t('products')} (${r.products.length})`), h('ul', { class: 'products' }, r.products.map(productBlock))) : null,
-      en?.product ? h('section', {}, h('h2', {}, 'Product details (translated)'), h('p', { class: 'pre' }, en.product)) : null,
       tx.stores ? h('section', {}, h('h2', {}, t('whereSold')), h('p', {}, tx.stores)) : null,
       tx.reason ? h('section', {}, h('h2', {}, t('why')), h('p', {}, tx.reason)) : null,
       tx.action ? h('section', {}, h('h2', {}, t('whatToDo')), h('p', {}, tx.action)) : null,
