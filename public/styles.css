@@ -36,11 +36,11 @@
   /* scale */
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
   --radius-xs: 6px; --radius-sm: 8px; --radius-md: 12px; --radius-lg: 14px; --radius-pill: 999px;
-  --touch-target: 48px; --chip-height: 36px; --thumb-size: 64px; --die-size: 56px;
+  --touch-target: 48px; --chip-height: 36px; --photo-size: 96px;
   --icon-sm: 20px; --icon-md: 24px;
   /* type scale: size / line height */
   --fs-title: 1.5rem; --lh-title: 1.875rem;
-  --fs-product: 1.1875rem; --lh-product: 1.5625rem;
+  --fs-product: 1.375rem; --lh-product: 1.75rem;
   --fs-heading: 1.125rem; --lh-heading: 1.5rem;
   --fs-body: 1.0625rem; --lh-body: 1.5625rem;
   --fs-verdict: 1.0625rem; --lh-verdict: 1.375rem;
@@ -138,55 +138,50 @@ h3 { font-size: var(--fs-verdict); line-height: var(--lh-verdict); margin: 0 0 v
 .small { font-size: var(--fs-meta); line-height: var(--lh-meta); }
 .notice { margin: 0 0 var(--space-3); padding: var(--space-3) var(--space-4); background: var(--surface-sunken); border-radius: var(--radius-md); }
 
-/* Levels. The level class sets the text colour, the badge fill, the glyph on it and the tag tint. */
-.sev-health { --sev: var(--health); --fill: var(--health-fill); --on-fill: var(--on-health); --tint: var(--health-tint); --disc: var(--health-fill); --on-disc: var(--on-health); }
-.sev-allergy, .sev-possible { --sev: var(--allergy); --fill: var(--allergy-fill); --on-fill: var(--on-allergy); --tint: var(--allergy-tint); --disc: var(--allergy-fill); --on-disc: var(--on-allergy); }
-.sev-notacute { --sev: var(--notacute); --fill: var(--notacute-fill); --on-fill: var(--on-notacute); --tint: var(--notacute-tint); --disc: var(--notacute-tint); --on-disc: var(--notacute); }
-.sev-unfit { --sev: var(--unfit); --fill: var(--unfit-fill); --on-fill: var(--on-unfit); --tint: var(--unfit-tint); --disc: var(--unfit-tint); --on-disc: var(--unfit); }
-.sev-unstated { --sev: var(--ink); --fill: var(--surface); --on-fill: var(--ink); --tint: var(--surface-sunken); --disc: var(--surface); --on-disc: var(--ink); }
+/* Levels. The level class sets the verdict text colour, the band colours, the solid-tag fill and the tag tint. */
+.sev-health { --sev: var(--health); --fill: var(--health-fill); --on-fill: var(--on-health); --tint: var(--health-tint); --band: var(--health-fill); --on-band: var(--on-health); }
+.sev-allergy, .sev-possible { --sev: var(--allergy); --fill: var(--allergy-fill); --on-fill: var(--on-allergy); --tint: var(--allergy-tint); --band: var(--allergy-fill); --on-band: var(--on-allergy); }
+.sev-notacute { --sev: var(--notacute); --fill: var(--notacute-fill); --on-fill: var(--on-notacute); --tint: var(--notacute-tint); --band: var(--notacute-tint); --on-band: var(--notacute); }
+.sev-unfit { --sev: var(--unfit); --fill: var(--unfit-fill); --on-fill: var(--on-unfit); --tint: var(--unfit-tint); --band: var(--unfit-tint); --on-band: var(--unfit); }
+.sev-unstated { --sev: var(--ink); --fill: var(--surface); --on-fill: var(--ink); --tint: var(--surface-sunken); --band: var(--surface-sunken); --on-band: var(--ink); }
 .sev-ic { color: var(--sev); }
-/* The die-cut badge: a round sticker holding the level's shape. */
-.die {
-  display: grid; place-items: center; flex: none; width: var(--die-size); height: var(--die-size);
-  background: var(--disc); color: var(--on-disc); border: 3px solid var(--ink); border-radius: 50%;
-}
-.die .icon { width: 30px; height: 30px; stroke-width: 2.2; }
-.verdict { margin: 0; font-weight: 800; color: var(--sev); font-size: var(--fs-verdict); line-height: var(--lh-verdict); }
+/* The verdict band: shape icon plus words across the top of a sticker. Solid only for the levels that can hurt. */
+.band { display: flex; align-items: center; gap: var(--space-2); padding: 10px var(--space-4); background: var(--band); color: var(--on-band); font-weight: 800; font-size: var(--fs-verdict); line-height: var(--lh-verdict); }
+.band .icon { width: var(--icon-md); height: var(--icon-md); stroke-width: 2.2; }
 
-/* Feed: each recall is a sticker. A health sticker has a red frame; a personal one a double frame. */
+/* Product photo, or a placeholder when there is none. */
+.photo { display: grid; place-items: center; width: var(--photo-size); height: var(--photo-size); overflow: hidden; background: var(--photo-ground); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.photo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.photo-empty { background: var(--surface-sunken); color: var(--ink-muted); }
+.photo-empty .icon { width: 40px; height: 40px; stroke-width: 1.6; }
+
+/* Feed: each recall is a sticker. Verdict band first, then what the product is (name and picture), then what to do.
+   A health sticker has a red frame and a tinted ground. */
 .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
-.card {
-  display: grid; grid-template-columns: var(--die-size) minmax(0, 1fr); gap: var(--space-3); align-items: start;
-  --bw: var(--frame-w);
-  padding: calc(14px - var(--bw)) calc(18px - var(--bw)) calc(14px - var(--bw)) calc(14px - var(--bw)); text-decoration: none; color: var(--ink);
-  background: var(--surface); border: var(--bw) solid var(--frame); border-radius: var(--radius-lg);
+.card { display: block; overflow: hidden; text-decoration: none; color: var(--ink); background: var(--surface); border: var(--frame-w) solid var(--frame); border-radius: var(--radius-lg); }
+.card.sev-health { border: 3px solid var(--health-fill); background: var(--health-tint); }
+@media (hover: hover) {
+  .card:hover { background: var(--surface-sunken); }
+  .card.sev-health:hover { background: var(--health-tint-hover); }
 }
-.card.has-photo { grid-template-columns: var(--die-size) minmax(0, 1fr) var(--thumb-size); }
-.card.sev-health { --bw: 5px; border-color: var(--health-fill); background: var(--health-tint); }
-.card-mine { --bw: 5px; border-style: double; }
-@media (hover: hover) { .card:hover { background: var(--surface-sunken); } }
 .card:active { background: var(--border); }
-@media (hover: hover) { .card.sev-health:hover { background: var(--health-tint-hover); } }
 .card.sev-health:active { background: var(--health-tint-active); }
-.card-content { display: grid; gap: var(--space-1); min-width: 0; }
-.card-content > * { margin: 0; }
-.card .thumb { align-self: start; }
-.thumb { display: block; width: var(--thumb-size); height: var(--thumb-size); object-fit: contain; background: var(--photo-ground); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.product { font-size: var(--fs-product); line-height: var(--lh-product); margin: 0; overflow-wrap: anywhere; }
+.card-body { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.card-top { display: grid; grid-template-columns: minmax(0, 1fr) var(--photo-size); gap: var(--space-3); align-items: start; }
+.card-main { display: grid; gap: var(--space-2); min-width: 0; align-content: start; }
+.card-main > * { margin: 0; }
+.product { font-size: var(--fs-product); line-height: var(--lh-product); font-weight: 800; margin: 0; overflow-wrap: anywhere; }
 .facts-line { margin: 0; font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--ink-muted); }
 .card-reasons { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); font-size: var(--fs-meta); line-height: var(--lh-meta); }
-.card-action { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; }
-.card-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-1) !important; font-size: var(--fs-meta); line-height: var(--lh-meta); }
-.card-meta {
-  grid-column: 1 / -1; display: flex; justify-content: space-between; gap: var(--space-3);
-  padding-top: var(--space-2); border-top: 1px solid var(--border); color: var(--ink-muted); font-size: var(--fs-meta); line-height: var(--lh-meta);
-}
-.store { overflow-wrap: anywhere; }
-@media (max-width: 480px) {
-  .card.has-photo { grid-template-columns: var(--die-size) minmax(0, 1fr) 48px; }
-  .card .thumb { width: 48px; height: 48px; }
-}
+.card-action { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: 10px var(--space-3); background: var(--surface-sunken); border-radius: var(--radius-md); font-weight: 700; }
+.sev-health .card-action { background: var(--surface); }
+.card-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.card-meta { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); color: var(--ink-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.card-meta .store { display: flex; align-items: center; gap: var(--space-2); overflow-wrap: anywhere; }
 .card-meta time { white-space: nowrap; }
+@media (max-width: 380px) {
+  :root { --photo-size: 80px; }
+}
 
 /* Tags: a reason or allergen in the recall's level colour. Badges: relevance (a black seal) and scope. */
 .tag { display: inline-flex; align-items: center; gap: var(--space-1); padding: 1px var(--space-2); background: var(--tint); color: var(--sev); border-radius: var(--radius-xs); font-weight: 700; }
@@ -200,31 +195,21 @@ h3 { font-size: var(--fs-verdict); line-height: var(--lh-verdict); margin: 0 0 v
 .back { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--touch-target); padding-inline: var(--space-3); margin-left: calc(var(--space-3) * -1); border-radius: var(--radius-pill); font-weight: 700; text-decoration: none; }
 @media (hover: hover) { .back:hover { background: var(--surface-sunken); } }
 .back:active { background: var(--border); }
-.sticker {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); align-items: center; margin: 0;
-  --bw: var(--frame-w);
-  padding: calc(14px - var(--bw)) calc(18px - var(--bw)) calc(14px - var(--bw)) calc(14px - var(--bw));
-  background: var(--surface); border: var(--bw) solid var(--frame); border-radius: var(--radius-lg);
-}
-.sticker.sev-health { --bw: 5px; border-color: var(--health-fill); background: var(--health-tint); }
-.sticker .die { width: 64px; height: 64px; }
-.sticker .die .icon { width: 34px; height: 34px; }
-.sticker-text { display: grid; gap: var(--space-1); min-width: 0; }
-.sticker-text > * { margin: 0; }
-.sticker .verdict { font-size: var(--fs-heading); line-height: var(--lh-heading); }
-.sticker-note { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; color: var(--ink); }
+.sticker { margin: 0; overflow: hidden; background: var(--surface); border: var(--frame-w) solid var(--frame); border-radius: var(--radius-lg); }
+.sticker.sev-health { border: 3px solid var(--health-fill); background: var(--health-tint); }
+.sticker-note { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-4); font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; color: var(--ink); }
 .authority { margin: var(--space-3) 0; padding: var(--space-3) var(--space-4); background: var(--surface-sunken); border-radius: var(--radius-md); font-style: italic; }
 .authority .small { font-style: normal; display: block; }
 .authority-text { display: block; }
 .authority.is-clamped .authority-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .authority .linkbtn { margin-top: var(--space-1); padding-inline: 0; min-height: var(--touch-target); }
-.detail-head { margin: var(--space-3) 0; }
-.detail-head.has-photo { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: var(--space-3); align-items: start; }
+.detail-head { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: var(--space-3); align-items: start; margin: var(--space-3) 0; }
+.detail-head .photo { width: 112px; height: 112px; }
 .detail-title { min-width: 0; }
-.detail-title > h1 { margin: var(--space-2) 0 var(--space-1); }
+.detail-title > h1 { margin: 0 0 var(--space-1); font-weight: 800; }
 .detail-title > p { margin: 0; }
-.thumb-link { display: block; border-radius: var(--radius-sm); }
-.thumb-lg { width: 96px; height: 96px; }
+.detail-title > .badge { margin-bottom: var(--space-2); }
+.thumb-link { display: block; border-radius: var(--radius-md); }
 .facts { margin: var(--space-3) 0; padding: 0; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .fact { display: grid; grid-template-columns: var(--icon-md) minmax(0, 1fr); align-items: center; gap: var(--space-3); min-height: calc(var(--touch-target) + var(--space-3)); padding: var(--space-3) var(--space-4); }
 .fact + .fact { border-top: 1px solid var(--border); }
@@ -336,12 +321,12 @@ input[type="text"], input[type="date"] {
 
 /* Windows high contrast drops backgrounds and shadows: keep edges and badge shapes. */
 @media (forced-colors: active) {
-  .tag, .badge, .die { border: 2px solid CanvasText; }
+  .tag, .badge { border: 2px solid CanvasText; }
   .card, .sticker, .checker { border-color: CanvasText; }
-  .card-mine { border-color: Highlight; }
+  .band { border-bottom: 2px solid CanvasText; }
   nav a[aria-current="page"] { outline: 2px solid Highlight; }
   .chip[aria-pressed="true"] { border-color: Highlight; outline: 2px solid Highlight; }
-  .thumb, .thumb-lg { forced-color-adjust: none; }
+  .photo img { forced-color-adjust: none; }
   .radio input:checked { background: Highlight; border-color: Highlight; }
   .radio input:checked::after, .chip[aria-pressed="true"]::after { background: HighlightText; }
 }

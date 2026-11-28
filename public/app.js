@@ -162,22 +162,34 @@ function setTitle(text) {
   document.title = text ? `${text} · ${t('appName')}` : t('appName');
 }
 
-// Detail screen: the recall as a door sticker, a die-cut badge holding the level's shape plus the verdict.
-// A note under the verdict says who is especially at risk, when the notice names them.
+// A level's verdict as a full-width band: shape icon plus the Danish words, filled by level.
+function band(s) {
+  return h('div', { class: 'band' }, icon(s.severity.level, { md: true }), h('span', {}, s.severityText));
+}
+
+// Detail screen: the recall as a door sticker. A note under the band says who is especially at risk,
+// when the notice names them.
 function sevSticker(s, note = null) {
-  const lvl = s.severity.level;
-  return h('div', { class: `sticker sev-${lvl}` },
-    h('div', { class: 'die' }, icon(lvl)),
-    h('div', { class: 'sticker-text' },
-      h('p', { class: 'verdict' }, s.severityText),
-      note ? h('p', { class: 'sticker-note' }, icon('users'), h('span', {}, note)) : null));
+  return h('div', { class: `sticker sev-${s.severity.level}` },
+    band(s),
+    note ? h('p', { class: 'sticker-note' }, icon('users'), h('span', {}, note)) : null);
+}
+
+// The product photo, or a placeholder when the recall has none (or it will not load).
+function photo(r, width = 240) {
+  const box = h('div', { class: 'photo' });
+  const empty = () => { box.classList.add('photo-empty'); box.replaceChildren(icon('package')); };
+  if (!r.image) { empty(); return box; }
+  box.append(h('img', {
+    src: thumbSrc(r.image, width), alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onerror: empty,
+  }));
+  return box;
 }
 
 function badgeFor(s, d) {
   const mine = (text) => h('span', { class: 'badge badge-mine' }, icon('target'), text);
   if (s.mine) return mine(`${t('yourStore')}${s.viaGroup ? ` (${t('viaGroup')})` : ''}`);
   if (d.words.length) return mine(`${t('watchHit')}: ${d.words.join(', ')}`);
-  if (s.nationwide) return h('span', { class: 'badge' }, t('nationwide'));
   return null;
 }
 
@@ -211,23 +223,21 @@ function card(r) {
   const badge = badgeFor(s, d);
   const meta = [s.size, s.dates].filter(Boolean).join(' · ');
   return h('li', {},
-    h('a', { class: `card sev-${lvl}${d.highlight ? ' card-mine' : ''}${r.image ? ' has-photo' : ''}`, href: `#/recall/${encodeURIComponent(r.id)}` },
-      h('div', { class: 'die' }, icon(lvl)),
-      h('div', { class: 'card-content' },
-        h('p', { class: 'verdict' }, s.severityText),
-        h('h2', { class: 'product' }, s.product),
-        reasonTags(r, s),
-        meta ? h('p', { class: 'facts-line' }, meta) : null,
+    h('a', { class: `card sev-${lvl}`, href: `#/recall/${encodeURIComponent(r.id)}` },
+      band(s),
+      h('div', { class: 'card-body' },
+        // What product is it? The name and the picture come first.
+        h('div', { class: 'card-top' },
+          h('div', { class: 'card-main' },
+            h('h2', { class: 'product' }, s.product),
+            meta ? h('p', { class: 'facts-line' }, meta) : null,
+            reasonTags(r, s),
+            badge ? h('div', { class: 'card-tags' }, badge) : null),
+          photo(r)),
         h('p', { class: 'card-action' }, icon('done'), s.action),
-        badge ? h('div', { class: 'card-tags' }, badge) : null),
-      // The feed asks for a small copy of the photo; if it will not load, the card simply has no photo.
-      r.image ? h('img', {
-        class: 'thumb', src: thumbSrc(r.image), alt: '', width: 64, height: 64, loading: 'lazy', referrerpolicy: 'no-referrer',
-        onerror: (e) => { e.target.closest('.card').classList.remove('has-photo'); e.target.remove(); },
-      }) : null,
-      h('div', { class: 'card-meta' },
-        h('span', { class: 'store' }, s.store),
-        h('time', { datetime: r.published }, fmtDate(r.published)))));
+        h('div', { class: 'card-meta' },
+          h('span', { class: 'store' }, icon('pin'), s.store),
+          h('time', { datetime: r.published }, fmtDate(r.published))))));
 }
 
 async function viewFeed() {
@@ -359,11 +369,9 @@ async function viewRecall(id) {
     flagged ? [productList(myProducts), h('details', { class: 'more' }, h('summary', {}, `${t('otherProducts')} (${otherProducts.length})`), productList(otherProducts))]
       : productList(products)) : null;
 
-  const thumb = r.image ? h('a', { class: 'thumb-link', href: r.image, target: '_blank', rel: 'noopener', 'aria-label': `${t('productImage')}: ${s.product}` },
-    h('img', {
-      class: 'thumb thumb-lg', src: thumbSrc(r.image, 240), alt: '', width: 96, height: 96, loading: 'lazy', referrerpolicy: 'no-referrer',
-      onerror: (e) => { const head = e.target.closest('.detail-head'); head?.classList.remove('has-photo'); e.target.closest('.thumb-link').remove(); },
-    })) : null;
+  const thumb = r.image
+    ? h('a', { class: 'thumb-link', href: r.image, target: '_blank', rel: 'noopener', 'aria-label': `${t('productImage')}: ${s.product}` }, photo(r))
+    : photo(r);
 
   const whereSold = uniqueStores(tx.stores);
   // Everything the facts list already says, plus the notice's own text, behind one disclosure.
@@ -382,13 +390,13 @@ async function viewRecall(id) {
     shareMsg,
     h('article', { class: 'detail' },
       sevSticker(s, s.severity.vulnerableMentioned ? vulnerableText(settings.lang) : null),
-      quoteBox,
-      h('div', { class: `detail-head${thumb ? ' has-photo' : ''}` },
-        thumb,
+      h('div', { class: 'detail-head' },
         h('div', { class: 'detail-title' },
           badgeFor(s, d),
           h('h1', {}, tx.title),
-          h('p', { class: 'muted small' }, `${t('published')} ${fmtDate(r.published)}`, r.updated ? ` · ${r.updated}` : ''))),
+          h('p', { class: 'muted small' }, `${t('published')} ${fmtDate(r.published)}`, r.updated ? ` · ${r.updated}` : '')),
+        thumb),
+      quoteBox,
       settings.lang === 'en' && r.en ? h('p', { class: 'muted small' },
         showOriginal.has(r.id) ? 'Showing the original Danish text. ' : 'Machine-translated from Danish. ',
         h('button', { type: 'button', class: 'linkbtn', onclick: () => {

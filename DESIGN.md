@@ -1,6 +1,6 @@
 ---
 name: Tilbagekald Alert
-description: Every food recall is a door sticker with a die-cut round badge holding its level's shape. Ink is the only brand fill; red belongs to the health level alone.
+description: Every food recall is a door sticker that opens with a full-width verdict band carrying its level's shape and words. Ink is the only brand fill; red belongs to the health level alone.
 colors:
   bg: "#e6eee9"
   surface: "#ffffff"
@@ -49,9 +49,9 @@ typography:
     lineHeight: "1.875rem"
   product:
     fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
-    fontSize: "1.1875rem"
-    fontWeight: 700
-    lineHeight: "1.5625rem"
+    fontSize: "1.375rem"
+    fontWeight: 800
+    lineHeight: "1.75rem"
   heading:
     fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
     fontSize: "1.125rem"
@@ -90,22 +90,55 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     rounded: "{rounded.lg}"
-    padding: "12px 16px 12px 12px"
+  sticker-hover:
+    backgroundColor: "{colors.surface-sunken}"
+  sticker-pressed:
+    backgroundColor: "{colors.border}"
   sticker-health:
     backgroundColor: "{colors.health-tint}"
     textColor: "{colors.ink}"
     rounded: "{rounded.lg}"
-  sticker-hover:
-    backgroundColor: "{colors.surface-sunken}"
   sticker-health-hover:
     backgroundColor: "{colors.health-tint-hover}"
   sticker-health-pressed:
     backgroundColor: "{colors.health-tint-active}"
-  die:
+  band-health:
     backgroundColor: "{colors.health-fill}"
     textColor: "{colors.on-health}"
-    rounded: "{rounded.pill}"
-    size: "56px"
+    typography: "{typography.verdict}"
+    padding: "10px 16px"
+  band-allergy:
+    backgroundColor: "{colors.allergy-fill}"
+    textColor: "{colors.on-allergy}"
+    typography: "{typography.verdict}"
+    padding: "10px 16px"
+  band-notacute:
+    backgroundColor: "{colors.notacute-tint}"
+    textColor: "{colors.notacute}"
+    typography: "{typography.verdict}"
+    padding: "10px 16px"
+  band-unfit:
+    backgroundColor: "{colors.unfit-tint}"
+    textColor: "{colors.unfit}"
+    typography: "{typography.verdict}"
+    padding: "10px 16px"
+  band-unstated:
+    backgroundColor: "{colors.surface-sunken}"
+    textColor: "{colors.ink}"
+    typography: "{typography.verdict}"
+    padding: "10px 16px"
+  photo:
+    backgroundColor: "{colors.photo-ground}"
+    rounded: "{rounded.md}"
+    size: "96px"
+  photo-empty:
+    backgroundColor: "{colors.surface-sunken}"
+    textColor: "{colors.ink-muted}"
+  action-strip:
+    backgroundColor: "{colors.surface-sunken}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.md}"
+    padding: "10px 12px"
   nav-pill:
     textColor: "{colors.on-bar}"
     rounded: "{rounded.pill}"
@@ -149,7 +182,7 @@ components:
   tag:
     backgroundColor: "{colors.allergy-tint}"
     textColor: "{colors.allergy}"
-    rounded: "6px"
+    rounded: "{rounded.xs}"
     padding: "1px 8px"
   tag-solid:
     backgroundColor: "{colors.allergy-fill}"
@@ -187,13 +220,14 @@ components:
 
 **Creative North Star: "The Door Sticker"**
 
-Every recall is a food-inspection door sticker, the severity scale a Dane already reads at a glance. The level lives in one object: a die-cut round badge holding its own shape, set in a framed white sticker on a mint-tinted ground. A graphite-green bar holds two pill nav items. Ink (`#10201a`) is the only brand fill; there is no brand hue to compete with a warning.
+Every recall is a food-inspection door sticker, the severity scale a Dane already reads at a glance. The level lives in one object: a full-width verdict band across the top of a framed sticker, holding the level's own shape icon and its Danish words, filled by level. The sticker sits on a mint-tinted ground. A graphite-green bar holds two pill nav items, led by a ring-and-dot brand mark. Ink (`#10201a`) is the only brand fill; there is no brand hue to compete with a warning.
 
-The reader is one household member on an Android phone, in a kitchen or from a lock-screen push, deciding in seconds whether they have the product. Reading order is badge and verdict first, product second, what to do third, store and date last. The system is flat: depth comes from frames and tonal steps, never from shadows. Type is the system font stack only, with sentence-case verdicts at weight 800.
+The reader is one household member on an Android phone, in a kitchen or from a lock-screen push, deciding in seconds whether they have the product. Reading order is verdict band, then product name beside a large photo, then a "what to do" strip, then store and date. The system is flat: depth comes from frames and tonal steps, never from shadows. Type is the system font stack only, with sentence-case verdicts and product names at weight 800.
 
 **Key Characteristics:**
-- One 56px die-cut badge per level, shape plus colour, never colour alone.
-- Thick ink frame (2px) on every sticker; the health sticker takes a 5px red frame and a red tint ground.
+- One full-width verdict band per sticker: shape icon plus words, solid only for the levels that can hurt (health red, allergy and possible orange).
+- 2px ink frame on every sticker; the health sticker takes a 3px red frame on a red tint ground.
+- Product name (22px, 800) and a 96px photo come first under the band; a missing photo shows a package-icon tile.
 - Ink is the only brand fill: primary button, selected chip, relevance seal.
 - Flat slabs for controls with an ink edge; pressed sinks 1px.
 - Light and dark both mint-tinted, never plain gray.
@@ -203,47 +237,48 @@ The reader is one household member on an Android phone, in a kitchen or from a l
 A mint-tinted neutral ground, ink for every brand moment, and four level hues that each hold one job.
 
 ### Primary
-- **Ink** (`--ink` / `--brand`, #10201a): body text, sticker frames, die rings, primary button, selected chip, the relevance seal. In dark it inverts to #e9f1ec.
+- **Ink** (`--ink` / `--brand`, #10201a): body text, sticker frames, primary button, selected chip, the relevance seal. In dark it inverts to #e9f1ec.
 
 ### Secondary
 - **Graphite-Green Bar** (`--bar`, #103a2e): the app bar only. Text `--on-bar` #f2f8f4; hover #2a6352; pressed #3a735f. Dark: bar #14382c, hover #2c624f, pressed #3d7863.
 
-### Level colours (each has text colour, badge fill, glyph on the fill, tint)
-- **Health red** (text #b01a2c, fill #d7263d, glyph #ffffff, tint #fde7ea; hover tint #fad7dc, pressed tint #f6ccd2): the `health` level and its states only.
-- **Allergy orange** (text #8a4300, fill #e8870e, glyph #10201a, tint #ffefd9): `allergy` and `possible`.
-- **Not-acute blue** (text #1d4aa0, fill #2f5fb3, glyph #ffffff, tint #e3ebfa): `notacute`.
-- **Unfit gray-green** (text #3f4a44, fill #5f6b65, glyph #ffffff, tint #e1e8e4): `unfit`.
-- **Unstated**: no hue of its own; ink on white (`--surface`), tint `--surface-sunken`.
+### Level colours (each has text colour, band or tag fill, glyph on the fill, tint)
+- **Health red** (text #b01a2c, fill #d7263d, on-fill #ffffff, tint #fde7ea; hover tint #fad7dc, pressed tint #f6ccd2): the `health` level and its states only.
+- **Allergy orange** (text #8a4300, fill #e8870e, on-fill #10201a, tint #ffefd9): `allergy` and `possible`.
+- **Not-acute blue** (text #1d4aa0, fill #2f5fb3, on-fill #ffffff, tint #e3ebfa): `notacute`.
+- **Unfit gray-green** (text #3f4a44, fill #5f6b65, on-fill #ffffff, tint #e1e8e4): `unfit`.
+- **Unstated**: no hue of its own; ink text, tint `--surface-sunken`.
 - **Pack-check clear** (`--ok` #1b6b43, tint #dff1e6): a pack check that came back clear. Dark #7fd99a / #12301c.
 
 ### Neutral
 - **Mint Ground** (`--bg`, #e6eee9; dark #0e1411): page.
 - **Sticker White** (`--surface`, #ffffff; dark #17201b): stickers, panels, inputs.
-- **Sunken Mint** (`--surface-sunken`, #d9e4de; dark #212c26): hover ground, notices, authority quote.
-- **Hairline** (`--border`, #c3d1c9; dark #2f3d35): dividers and passive edges.
-- **Control Edge** (`--border-control`, #5b6b62; dark #8fa399): input, quiet button, unselected chip, badge outline. At least 3:1.
+- **Sunken Mint** (`--surface-sunken`, #d9e4de; dark #212c26): hover ground, notices, authority quote, action strip, photo placeholder.
+- **Hairline** (`--border`, #c3d1c9; dark #2f3d35): dividers, photo edge and passive edges.
+- **Control Edge** (`--border-control`, #5b6b62; dark #8fa399): input, quiet button, unselected chip. At least 3:1.
 - **Muted Ink** (`--ink-muted`, #46564d; dark #a9bab0): secondary text, never lighter.
 - **Frame** (`--frame`, #10201a; dark #9fb5a9): sticker border; `--frame-w` 2px.
 - **Focus Blue** (`--focus`, #1a5fb4; dark #8ab4ff; on the bar #ffffff, dark #8ab4ff): the one focus ring.
 
 ### Level mapping
 
-| Level | Shape (icon) | Disc (badge fill) | Glyph on disc | Text colour | Tint |
+| Level | Shape (icon) | Band fill | Band text and icon | Tag text | Tint |
 | --- | --- | --- | --- | --- | --- |
-| health | octagon + ! | health-fill | on-health | health | health-tint |
-| allergy | triangle + ! | allergy-fill | on-allergy | allergy | allergy-tint |
+| health | octagon + ! | health-fill (solid) | on-health | health | health-tint |
+| allergy | triangle + ! | allergy-fill (solid) | on-allergy | allergy | allergy-tint |
 | possible | hexagon + ! | allergy-fill (shares allergy) | on-allergy | allergy | allergy-tint |
 | notacute | diamond + clock | notacute-tint | notacute | notacute | notacute-tint |
 | unfit | circle + dash | unfit-tint | unfit | unfit | unfit-tint |
-| unstated | rounded square + ? | surface | ink | ink | surface-sunken |
+| unstated | rounded square + ? | surface-sunken | ink | ink | surface-sunken |
 
-The level class (`.sev-*`) sets `--sev`, `--fill`, `--on-fill`, `--tint`, `--disc`, `--on-disc`; components read those, never the level tokens directly.
+The level class (`.sev-*`) sets `--sev`, `--fill`, `--on-fill`, `--tint`, `--band`, `--on-band`; components read those, never the level tokens directly.
 
 ### Named Rules
-**The Red Is Health Rule.** Red appears only for the `health` level: its badge, frame, tint, and the "bad" pack-check result. It is never brand, hover, selection, or decoration.
+**The Red Is Health Rule.** Red appears only for the `health` level: its band, frame, tint, and the "bad" pack-check result. It is never brand, hover, selection, or decoration.
 **The Ink Is The Brand Rule.** The only brand fill is ink. Primary button, selected chip and relevance seal are ink; there is no brand hue.
-**The Shape Beside The Colour Rule.** Every level has its own shape inside the badge; colour is never the only signal.
-**The Relevance Is Black Rule.** "This concerns you" is a black ink seal (`.badge-mine`) and a double frame; it never recolours the severity.
+**The Shape Beside The Words Rule.** Every level has its own shape icon and its own Danish verdict in the band; colour is never the only signal.
+**The Solid Only When It Can Hurt Rule.** A band is a solid fill only for health, allergy and possible; the calmer levels use a tint with a level-coloured glyph and text.
+**The Relevance Is Black Rule.** "This concerns you" is a black ink seal (`.badge-mine`); it never recolours the severity.
 
 ## Typography
 
@@ -252,12 +287,12 @@ The level class (`.sev-*`) sets `--sev`, `--fill`, `--on-fill`, `--tint`, `--dis
 **Character:** plain and sturdy. Hierarchy comes from size and weight (400, 600, 700, 800), not from a second face.
 
 ### Hierarchy
-- **Title** (700, 1.5rem, 1.875rem line): h1 page and detail title.
-- **Product** (700, 1.1875rem, 1.5625rem): product name on the card.
-- **Heading** (700, 1.125rem, 1.5rem): h2; the detail sticker's verdict.
+- **Title** (700, 1.5rem, 1.875rem line): h1 page and detail title (detail h1 at 800).
+- **Product** (800, 1.375rem, 1.75rem): product name on the card (`--fs-product`).
+- **Heading** (700, 1.125rem, 1.5rem): h2.
 - **Body** (400, 1.0625rem, 1.5625rem): default text.
-- **Verdict** (800, 1.0625rem, 1.375rem): the level's words on a card, in the level's text colour, sentence case.
-- **Meta** (400, 0.9375rem, 1.3125rem): facts line, reasons, tags, footer, dates.
+- **Verdict** (800, 1.0625rem, 1.375rem): the level's words in the band, sentence case; also h3 product-block names.
+- **Meta** (400, 0.9375rem, 1.3125rem): facts line, reasons, tags, footer, dates, sticker note (600).
 
 ### Named Rules
 **The Tokens Only Rule.** Font sizes come from `--fs-*` / `--lh-*` in rem; no literal sizes. Dates and `dd` use tabular numerals.
@@ -265,28 +300,37 @@ The level class (`.sev-*`) sets `--sev`, `--fill`, `--on-fill`, `--tint`, `--dis
 
 ## Layout
 
-A single column, `main` max 42rem, 16px gutters, 4rem bottom padding. The bar's padding aligns to the same column. Spacing scale 4/8/12/16/24/32px (`--space-1..6`). Feed stickers are separated by 12px. Touch target 48px; chip 36px with a 48px hit area. Below 480px the brand name is visually hidden (the mark remains), nav pills tighten to 12px padding and the thumbnail shrinks to 48px. Detail screen order: share and back; level sticker (one note when vulnerable groups are named); authority quote (three lines then "Læs hele citatet"); photo beside relevance badge, title and date; facts list; "Appen er usikker på…" note; "Har jeg den?" check; products; for levels that can hurt (health, allergy, possible, unstated) the full advice text; one "Læs hele meddelelsen" disclosure; official link; original text.
+A single column, `main` max 42rem, 16px gutters, 4rem bottom padding. The bar's padding aligns to the same column. Spacing scale 4/8/12/16/24/32px (`--space-1..6`). Feed stickers are separated by 12px. Touch target 48px; chip 36px with a 48px hit area.
+
+A feed sticker is the band, then a body with 12px gaps: a two-column top (name, facts line, reason tags and optional seal at left; 96px photo at right), the full-width action strip, and a footer row with store at left and date at right. Below 480px the brand name is visually hidden (the mark remains) and nav pills tighten to 12px padding. Below 380px the photo shrinks to 80px (`--photo-size`).
+
+Detail screen order: share and back row; verdict sticker (band, plus one note when vulnerable groups are named); product title (with seal and published date) beside a 112px photo; authority quote (three lines then a read-more toggle); translation note; facts list (what to do, why, where sold); "Appen er usikker på…" note; "Har jeg den?" check; products; for levels that can hurt the full advice text; one "Læs hele meddelelsen" disclosure; official link; original text.
 
 ## Elevation & Depth
 
-Flat. There are no shadows. Depth is a frame (2px ink, or 5px for health and personal stickers), a tonal step (white sticker on mint ground, sunken mint on hover), and a 1px sink on pressed buttons. Hover is gated by `@media (hover: hover)`; `:active` applies to all input methods.
+Flat. There are no shadows. Depth is a frame (2px ink, or 3px red for health), a tonal step (white sticker on mint ground, sunken mint on hover), and a 1px sink on pressed buttons. Hover is gated by `@media (hover: hover)`; `:active` applies to all input methods.
 
 ### Named Rules
 **The Flat Slab Rule.** Controls are flat slabs with an ink edge. Hover tints, pressed sinks, focus is the blue ring. No shadows, no gradients.
 
 ## Shapes
 
-Radii: 6px (`--radius-xs`, tags, checkboxes), 8px (`--radius-sm`, thumbnails, links), 12px (`--radius-md`, buttons, inputs, notices), 14px (`--radius-lg`, stickers, panels, facts, checker), 999px (pills: nav, chips, relevance seal). The die-cut badge is a perfect circle (56px, 64px on the detail sticker) with a 3px ink ring, holding a 30px (34px on detail) icon at stroke 2.2. Icons are Lucide-style outline, drawn inline in `public/icons.js`, 24px grid, 2px round stroke, one shape per level. The brand mark in the bar is a 28px ring with an 8px dot.
+Radii: 6px (`--radius-xs`, tags, checkboxes), 8px (`--radius-sm`, preformatted text), 12px (`--radius-md`, buttons, inputs, notices, photo tile, action strip, quote), 14px (`--radius-lg`, stickers, panels, facts, checker), 999px (pills: nav, chips, relevance seal, back link). The sticker clips its band to the 14px corner. Level shapes (octagon, triangle, hexagon, diamond, circle, rounded square) live as 24px icons inside the band at stroke 2.2. Icons are Lucide-style outline, drawn inline in `public/icons.js`, 24px grid, 2px round stroke; the action strip uses a circle-check, the footer a map pin, the missing-photo tile a 40px package. The brand mark in the bar is a 28px ring (3px stroke) with an 8px dot.
 
 ## Components
 
 ### Sticker (feed card and detail sticker)
-- **Anatomy:** die badge at left, then verdict, product, reason tags, action, and a footer rule with stores and date. Optional 64px thumbnail on the right (48px below 480px).
-- **Rest:** white ground, 2px `--frame` border, 14px radius.
-- **Health:** 5px `--health-fill` frame, `--health-tint` ground. Tags on it sit on white.
-- **Personal (`.card-mine`):** 5px double frame in the sticker's own frame colour (on a health sticker, red).
+- **Anatomy (feed):** verdict band; body with product name and 96px photo, reason tags, action strip with check icon, footer (pin and store left, `dd.mm.yyyy` date right).
+- **Rest:** white ground, 2px `--frame` border, 14px radius, overflow clipped.
+- **Health:** 3px `--health-fill` frame, `--health-tint` ground. Tags and the action strip sit on white.
 - **Hover:** `--surface-sunken` (health: `--health-tint-hover`). **Pressed:** `--border` (health: `--health-tint-active`).
-- **Detail sticker:** same frame logic, 64px badge, verdict at heading size, optional `.sticker-note` at weight 600.
+- **Detail sticker:** the band alone, plus an optional `.sticker-note` (users icon, weight 600) for vulnerable groups; same frame logic.
+
+### Verdict band
+Full-width strip, 10px by 16px padding, 24px level icon and verdict words at 800. Solid red for health, solid orange for allergy and possible; tint with a level-coloured glyph and text for notacute and unfit; sunken for unstated.
+
+### Photo
+96px square (80px under 380px, 112px on detail), white ground, 1px hairline edge, 12px radius, image contained. Missing or failing image becomes a sunken tile with a muted package icon. On detail the photo links to the full image.
 
 ### Navigation
 Pills on the bar, 36px tall with a 48px hit area, weight 700, no underlines. **Current:** solid slab, `--on-bar` fill with `--bar` text. **Hover:** `--bar-hover` fill (current stays put). **Pressed:** `--bar-active` fill. **Focus:** 3px `--focus-on-bar` ring.
@@ -302,29 +346,30 @@ Pills on the bar, 36px tall with a 48px hit area, weight 700, no underlines. **C
 
 ### Tags and Badges
 - **Tag:** a reason or allergen in the recall's level colour, tint ground, 6px radius, weight 700. **Solid tag:** the household's allergen, level fill with the target icon.
-- **Relevance seal (`.badge-mine`):** black ink pill with the target icon, on-brand text, weight 700. **Scope badge:** transparent pill with a 1px control edge.
+- **Relevance seal (`.badge-mine`):** black ink pill with the target icon and "Din butik" or the watch-word hit, on-brand text, weight 700. There is no scope badge.
 
 ### Checker ("Har jeg den?")
 A sticker: surface ground, 2px frame, 14px radius. Results: `bad` in `--health`, `ok` in `--ok`, both weight 700. A "no match" is never read as safe on a level that can hurt; "Jeg kan ikke læse datoen" tells the reader to assume it applies when name and size match.
 
 ### Facts list and Panels
-Facts: white list, hairline border, 14px radius, rows with a 24px muted icon and a bold title, dividers between rows, min height 60px. Panels (settings): white, hairline border, 14px radius, 16px padding. Products: 12px radius, hairline border.
+Facts: white list, hairline border, 14px radius, rows with a 24px muted icon and a bold title, dividers between rows, min height 60px. Authority quote: sunken, 12px radius, italic. Panels (settings): white, hairline border, 14px radius, 16px padding. Products: 12px radius, hairline border.
 
 ### Inputs
 48px tall, 2px `--border-control` edge, 12px radius, surface ground, ink caret. Check and radio controls are 24px custom boxes (6px radius, circular for radios), filled ink when checked. Focus is the 3px blue ring with a 2px offset.
 
 ### Forced colours
-Windows high contrast keeps edges: tags, badges and the die take a 2px `CanvasText` border; cards, stickers and the checker border in `CanvasText`; the personal double frame and selected chips use `Highlight`; the current nav pill gets a 2px `Highlight` outline; thumbnails opt out of forced colours; checked controls use `Highlight` / `HighlightText`.
+Windows high contrast keeps edges: tags and badges take a 2px `CanvasText` border; cards, stickers and the checker border in `CanvasText`; the band gets a 2px `CanvasText` bottom rule; selected chips use `Highlight`; the current nav pill gets a 2px `Highlight` outline; photos opt out of forced colours; checked controls use `Highlight` / `HighlightText`.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** give every level its own badge shape and keep the verdict in sentence case.
-- **Do** keep text at 4.5:1 and control edges, focus rings and badge glyphs at 3:1 in both themes; `test/contrast.test.js` reads the tokens from `styles.css`. Add a pair there when you add a colour token.
+- **Do** open every sticker with a verdict band that pairs the level's own shape with its Danish words, in sentence case.
+- **Do** keep text at 4.5:1 and control edges, focus rings and band glyphs at 3:1 in both themes; `test/contrast.test.js` reads the tokens from `styles.css`. Add a pair there when you add a colour token.
 - **Do** keep voice short and plain: Danish first, English second, imperative.
 - **Do** keep buttons, inputs and nav targets at 48px; chips 36px with a 48px hit area, 12px between rows.
 - **Do** gate hover with `@media (hover: hover)` and style `:active` for all input methods.
-- **Do** show relevance with the black seal and double frame.
+- **Do** show relevance with the black seal.
+- **Do** give a recall without a usable photo the package-icon tile, never an empty gap.
 
 ### Don't:
 - **Don't** use red for anything but the health level: not hover, selection or brand.
