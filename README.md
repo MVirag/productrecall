@@ -20,6 +20,8 @@ can check whether you have it at home.
   always sounds and notifies even in "only my stores" mode.
 - **Sharing**: share a recall to WhatsApp/SMS etc., and share your settings
   as a link a partner can open to get the same stores, words and household.
+- **Barcode scan**: scan the barcode of a product at home and see whether it
+  is in a recent recall, then go straight to the date check. Nothing is saved.
 - **English**: each recall's full text is machine-translated (Cloudflare
   Workers AI) when the app is in English, with the Danish original one tap away.
 - **Push notifications** with the same short text as the card. Tapping one
@@ -227,6 +229,45 @@ recall. So translation is treated as untrusted:
 - The product table, store chips, dates and the quoted risk sentence are
   never machine-translated.
 
+## Barcode scan
+
+*Scan stregkode* on the feed opens the camera. A barcode is read in the
+browser; nothing is uploaded or stored. The code is compared with the
+barcodes (EAN/GTIN) printed in the stored recalls and the result is one of:
+
+- **Match**: the recall card and the matched product are shown. Opening the
+  recall puts the barcode into the "Har jeg den?" check, so only the date is
+  left to type.
+- **Approximate match**: the notice prints a number that is not a valid
+  barcode (seen once in the 30 barcodes of the saved notices: 14 digits, bad
+  check digit). Its first 12 digits are compared and the screen says it is
+  approximate and to check name and size.
+- **No match**: shown with the "risk not stated" question-mark sticker and
+  the wording *"Ingen match, men det er ikke en garanti"*, with the number
+  of recent recalls that print barcodes at all. It is never worded or shown
+  as an all-clear.
+- **Invalid number** (check digit fails): reported as such; no match attempted.
+
+Ways to give a barcode: the live camera, *Tag et billede* (a photo, for when
+live focus fails), or typing the number under the barcode.
+
+How it works:
+
+- Reader: the browser's own `BarcodeDetector` where it exists (Chrome on
+  Android), otherwise ZXing (`public/vendor/zxing-library.min.js`, Apache-2.0,
+  v0.23.0, with its licence file), loaded only when the scan screen opens and
+  then cached for offline use.
+- A code is accepted only when its check digit is valid and the same code was
+  read twice in a row, so a misread never reaches the matcher.
+- `public/shared/ean.js` matches codes as 14-digit GTINs, so EAN-13, UPC-A
+  and EAN-8 forms of one product agree. `test/ean.test.js` checks it against
+  the barcodes in the 17 real notices.
+- Verified in headless Chromium with a fake camera filming a generated EAN-13
+  of a real notice's barcode (ZXing path), a photo upload, typed numbers, a
+  denied camera, a wrong check digit and the English screens. The native
+  `BarcodeDetector` path was tested only with a stand-in detector; real
+  focus, light and the camera permission prompt on a phone are not covered.
+
 ## Non-food recalls (checked 27 Nov 2026)
 
 - **Sikkerhedsstyrelsen (sik.dk):** no usable recall data. Its only RSS feed
@@ -237,6 +278,11 @@ recall. So translation is treated as untrusted:
 - **EU Safety Gate:** not checked yet; the likely source if non-food is added.
 
 ## Known limitations
+
+- **Barcode scan only matches what the notice prints.** 9 of the 17 saved
+  notices (30 of 71 products) list barcodes. A recalled product from a notice
+  without barcodes, or one older than the stored recalls (the newest 60), is
+  not found.
 
 - **Not yet verified:** that Fødevarestyrelsen accepts requests from
   Cloudflare's network, and real push delivery to an Android phone.
