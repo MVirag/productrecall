@@ -84,15 +84,15 @@ async function handleApi(request, env, ctx, url) {
 
   if (path === '/api/status' && method === 'GET') {
     const s = await loadState(env.KV);
-    // Reliability counters only (no usage numbers); anonymous sums for the last 7 days.
-    return json({ seeded: s.seeded, lastPoll: s.lastPoll, lastNew: s.lastNew || null, lastError: s.lastError, pending: s.pending.length, last7days: await lastDays(env, 7, RELIABILITY) });
+    // Public: no error text, no counters. Those are in /api/admin/stats (needs ADMIN_TOKEN).
+    return json({ seeded: s.seeded, lastPoll: s.lastPoll, lastNew: s.lastNew || null });
   }
 
   if (path === '/api/recalls' && method === 'GET') {
     const recalls = await loadRecalls(env.KV);
     const s = await loadState(env.KV);
     await track(ctx, env, via === 'scan' ? 'scan_checks' : 'feed_loads');
-    return json({ recalls: recalls.map(light), lastPoll: s.lastPoll, lastError: s.lastError });
+    return json({ recalls: recalls.map(light), lastPoll: s.lastPoll });
   }
 
   const one = path.match(/^\/api\/recalls\/([a-z0-9æøå-]+)$/);
@@ -166,7 +166,14 @@ async function handleApi(request, env, ctx, url) {
   if (path === '/api/admin/stats' && method === 'GET') {
     if (!isAdmin(request, env)) return json({ error: 'forbidden' }, 403);
     const subs = await listSubscriptions(env.KV);
-    return json({ retentionDays: RETENTION_DAYS, days: await dailyRecords(env, 30), settings: settingsOverview(subs) });
+    const s = await loadState(env.KV);
+    return json({
+      retentionDays: RETENTION_DAYS,
+      status: { seeded: s.seeded, lastPoll: s.lastPoll, lastNew: s.lastNew || null, lastError: s.lastError || null, pending: s.pending.length },
+      last7days: await lastDays(env, 7, RELIABILITY),
+      days: await dailyRecords(env, 30),
+      settings: settingsOverview(subs),
+    });
   }
 
   return json({ error: 'not_found' }, 404);

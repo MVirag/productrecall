@@ -27,11 +27,13 @@ Frontend: `public/app.js` is a hash-router SPA (feed, recall, settings, import, 
 
 Translation (`src/translate.js`): Workers AI, one field at a time, each result checked (English, numbers kept, no invented stores) or the Danish text is kept. Bumping `TRANSLATE_VERSION` hides every stored translation; the API serves only the current version.
 
+Owner dashboard: `public/admin.html` + `admin.js` at `/admin`, fed by `GET /api/admin/stats` (needs `ADMIN_TOKEN`). It must stay unlinked from the app and out of the service worker's cache; the public `/api/status` carries no counters or error text. Theme (Auto/Light/Dark) is a device-only setting applied via `data-theme` on `<html>` before first paint; the two dark token blocks in `styles.css` must stay identical (`test/theme.test.js`).
+
 Anonymous counters (`src/stats.js`): fixed allow-lists of event names, one record per UTC day, 35-day expiry. Usage events come from requests the app already makes, marked with `?via=scan` or `?via=push`, never from a separate beacon.
 
 ## Decisions not to undo without asking the user
 
 - Risk categories come only from Fødevarestyrelsen's own wording (`RULES` in `public/shared/severity.js`), and the sentence that decided it is shown as a quote. The app never invents a risk rating. Every recall sounds by default; silence is only the user's own quiet setting, and never for the household's allergens.
 - "No match" (barcode scan, pack check) must never read as safe: only some notices print barcodes, so the UI uses the "risk not stated" sticker.
-- No client-side tracking: no beacons, cookies, device or user IDs, click, scroll, session or location tracking. Keep the README "Privacy and telemetry" section and the Settings privacy panel accurate when stored data changes. Allergies and the vulnerable-household switch are stored server-side next to the push address, which needs consent and a privacy notice before other households use the app.
+- No client-side tracking: no beacons, cookies, device or user IDs, click, scroll, session or location tracking. Keep the README "Privacy and telemetry" section and the privacy dialog (Settings and footer) accurate when stored data changes. Allergies and the vulnerable-household switch are stored server-side next to the push address, which needs consent and a privacy notice before other households use the app.
 - Design: DESIGN.md rules apply (tokens only, red only for the health level, every level has its own shape). `test/contrast.test.js` reads the colour tokens from `public/styles.css`.

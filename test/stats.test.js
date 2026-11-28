@@ -161,20 +161,22 @@ test('request-based usage: the app marks where a request came from; the server c
   assert.equal(/endpoint|fcm|https?:|\d+\.\d+\.\d+\.\d+|user-agent/i.test(all), false);
 });
 
-test('status shows reliability only; admin stats need the token', async () => {
+test('public status carries no counters or error text; admin stats need the token', async () => {
   const env = { KV: fakeKV(), ...vapid(), ASSETS: { fetch: () => new Response('') }, ADMIN_TOKEN: 'secret-token' };
   await addCounts(env, { push_sent: 4, feed_loads: 7, scan_checks: 2 });
   const call = (path, headers) => worker.fetch(new Request(`https://x.dev${path}`, { headers }), env);
   const status = await (await call('/api/status')).json();
-  assert.equal(status.last7days.push_sent, 4);
-  assert.equal('feed_loads' in status.last7days, false);
-  assert.equal('scan_checks' in status.last7days, false);
+  assert.deepEqual(Object.keys(status).sort(), ['lastNew', 'lastPoll', 'seeded']);
   assert.equal((await call('/api/admin/stats')).status, 403);
   assert.equal((await call('/api/admin/stats', { authorization: 'Bearer wrong' })).status, 403);
   const admin = await (await call('/api/admin/stats', { authorization: 'Bearer secret-token' })).json();
   assert.equal(admin.retentionDays, 35);
   assert.equal(admin.days[0].feed_loads, 7);
   assert.equal(admin.settings.devices, 0);
+  assert.equal(admin.last7days.push_sent, 4);
+  assert.equal('feed_loads' in admin.last7days, false, 'last7days is reliability only');
+  assert.ok('lastError' in admin.status && 'pending' in admin.status);
+  assert.equal('lastError' in (await (await call('/api/recalls')).json()), false);
   const noToken = { ...env, ADMIN_TOKEN: undefined };
   assert.equal((await worker.fetch(new Request('https://x.dev/api/admin/stats', { headers: { authorization: 'Bearer undefined' } }), noToken)).status, 403, 'closed when no token is configured');
 });

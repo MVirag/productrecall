@@ -1,5 +1,5 @@
 // Service worker: app-shell cache, offline recall list, push notifications.
-const VERSION = 'v9';
+const VERSION = 'v10';
 const SHELL = `shell-${VERSION}`;
 const DATA = 'data';
 const SHELL_FILES = [
@@ -36,6 +36,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.pathname.startsWith('/api/')) return;
+  if (/^\/admin(\.|$|\/)/.test(url.pathname)) return; // owner dashboard: never cached
   // App shell: cache first, refresh in the background.
   e.respondWith((async () => {
     const cached = await caches.match(e.request, { ignoreSearch: true });

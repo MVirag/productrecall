@@ -9,7 +9,7 @@ import { digitsOnly, hasValidCheckDigit, matchRecalls, barcodeCoverage, formatCo
 // ------------------------------------------------------------ settings (on device)
 
 const SETTINGS_KEY = 'tilbagekald.settings.v1';
-const defaults = { lang: 'da', mode: 'all', chains: [], extraChains: [], words: [], allergens: [], vulnerable: false, quiet: [] };
+const defaults = { lang: 'da', mode: 'all', chains: [], extraChains: [], words: [], allergens: [], vulnerable: false, quiet: [], theme: 'system' };
 
 function loadSettings() {
   try {
@@ -99,7 +99,7 @@ async function api(path, body) {
 async function loadRecalls(via) {
   try {
     const d = await api(via ? `/api/recalls?via=${via}` : '/api/recalls');
-    cache = { recalls: d.recalls, lastPoll: d.lastPoll, lastError: d.lastError, offline: d._fromCache || false };
+    cache = { recalls: d.recalls, lastPoll: d.lastPoll, offline: d._fromCache || false };
   } catch (e) {
     if (!cache.recalls) throw e;
   }
@@ -461,8 +461,6 @@ async function viewSettings() {
   const sub = await currentSubscription().catch(() => null);
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const msg = h('p', { class: 'small', role: 'status', 'aria-live': 'polite' });
-  let status = null;
-  try { status = await api('/api/status'); } catch {}
 
   const notifState = !supported ? t('notifUnsupported')
     : Notification.permission === 'denied' ? t('notifDenied')
@@ -558,6 +556,15 @@ async function viewSettings() {
       })),
 
     h('section', { class: 'panel' },
+      h('h2', { id: 'theme-h' }, t('themeTitle')),
+      h('div', { role: 'radiogroup', 'aria-labelledby': 'theme-h', class: 'seg-group' },
+        [['system', 'monitor', 'themeSystem'], ['light', 'sun', 'themeLight'], ['dark', 'moon', 'themeDark']].map(([value, ic, key]) => h('label', { class: 'seg' },
+          h('input', { type: 'radio', name: 'theme', value, class: 'visually-hidden', checked: settings.theme === value,
+            onchange: () => { settings.theme = value; saveSettings(); applyTheme(); } }),
+          h('span', { class: 'seg-face' }, icon(ic), t(key))))),
+      h('p', { class: 'muted small' }, t('themeHelp'))),
+
+    h('section', { class: 'panel' },
       h('h2', { id: 'lang-h' }, t('language')),
       h('div', { role: 'radiogroup', 'aria-labelledby': 'lang-h', class: 'radios' },
         [['da', 'Dansk'], ['en', 'English']].map(([code, label]) => h('label', { class: 'radio', lang: code },
@@ -572,19 +579,9 @@ async function viewSettings() {
         title: t('appName'), text: t('shareSettingsText'), url: `${location.origin}/#/import/${encodeSettings()}`,
       }, msg) }, icon('share'), t('shareSettings'))),
 
-    h('section', { class: 'panel muted small' },
-      h('h2', {}, t('status')),
-      h('p', {}, `${t('lastCheck')}: ${fmtTime(status?.lastPoll)}`),
-      status?.lastError ? h('p', {}, `${t('feedError')}: ${status.lastError.message} (${fmtTime(status.lastError.at)})`) : null,
-      status?.last7days ? h('dl', { class: 'week' },
-        [['pushSent', 'push_sent'], ['pushRejected', 'push_rejected'], ['pushGone', 'push_gone'], ['recallsNew', 'recalls_new'], ['pollFailed', 'poll_failed'], ['detailFailed', 'detail_failed']]
-          .flatMap(([label, key]) => [h('dt', {}, t(`week_${label}`)), h('dd', {}, String(status.last7days[key] ?? 0))])) : null,
-      status?.last7days ? h('p', {}, t('weekNote')) : null,
-      h('p', {}, t('about'))),
-
     h('section', { class: 'panel small' },
       h('h2', {}, t('privacyTitle')),
-      h('ul', { class: 'plain-list' }, ['privacyPhone', 'privacyServer', 'privacyCounts', 'privacyOthers'].map((k) => h('li', {}, t(k))))),
+      h('button', { type: 'button', class: 'btn', onclick: (e) => openPrivacy(e.currentTarget) }, icon('shield'), t('privacyOpen'))),
   );
 }
 
@@ -776,11 +773,40 @@ async function viewScanResult(code) {
 
 // ------------------------------------------------------------ router / shell
 
+// Theme is a device-only choice: it is not sent to the server and not part of the share link.
+function applyTheme() {
+  const root = document.documentElement;
+  if (settings.theme === 'light' || settings.theme === 'dark') root.dataset.theme = settings.theme; else delete root.dataset.theme;
+  const colors = { light: '#103a2e', dark: '#14382c' };
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  metas.forEach((meta) => {
+    const own = meta.media.includes('dark') ? 'dark' : 'light';
+    meta.content = colors[settings.theme === 'light' || settings.theme === 'dark' ? settings.theme : own];
+  });
+}
+
+// The privacy text lives in a native <dialog>: Esc closes it, focus is trapped, and focus returns to the opener.
+function openPrivacy(opener) {
+  document.getElementById('privacy-dialog')?.remove();
+  const dlg = h('dialog', { class: 'modal', id: 'privacy-dialog', 'aria-labelledby': 'privacy-h' },
+    h('div', { class: 'modal-head' },
+      h('h2', { id: 'privacy-h' }, t('privacyTitle')),
+      h('button', { type: 'button', class: 'btn icon-btn', 'aria-label': t('close'), onclick: () => dlg.close() }, icon('x'))),
+    h('div', { class: 'modal-body small' },
+      h('ul', { class: 'plain-list' }, ['privacyPhone', 'privacyServer', 'privacyCounts', 'privacyOthers'].map((k) => h('li', {}, t(k))))));
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener('close', () => { dlg.remove(); opener?.focus?.(); });
+  document.body.append(dlg);
+  dlg.showModal();
+}
+
 function applyLang() {
   document.documentElement.lang = settings.lang;
   document.getElementById('nav-feed').textContent = t('navFeed');
   document.getElementById('nav-settings').textContent = t('navSettings');
   document.getElementById('app-name').textContent = t('appName');
+  document.getElementById('disclaimer').textContent = t('about');
+  document.getElementById('open-privacy').textContent = t('privacyTitle');
 }
 
 function route() {
@@ -807,5 +833,7 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
 });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+document.getElementById('open-privacy').addEventListener('click', (e) => openPrivacy(e.currentTarget));
+applyTheme();
 applyLang();
 route();

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 
 const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const lightBlock = css.match(/:root \{([\s\S]*?)\n\}/)[1];
-const darkBlock = css.match(/prefers-color-scheme: dark\) \{\s*:root \{([\s\S]*?)\n  \}/)[1];
+const darkBlock = css.match(/prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme=\"light\"\]\) \{([\s\S]*?)\n  \}/)[1];
 const parse = (block) => Object.fromEntries([...block.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-f]{6})\b/gi)].map((m) => [m[1], m[2]]));
 const THEMES = { light: parse(lightBlock), dark: { ...parse(lightBlock), ...parse(darkBlock) } };
 

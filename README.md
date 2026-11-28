@@ -171,7 +171,7 @@ subscriptions: turn notifications off and on again in the app.
 | Method & path | Purpose |
 |---|---|
 | `GET /api/config` | VAPID public key, default chains |
-| `GET /api/status` | Last poll time, last error, 7-day reliability counters |
+| `GET /api/status` | Last poll time and last new recall only (no counters, no error text) |
 | `GET /api/recalls` | Stored recalls (newest 60, without raw text) |
 | `GET /api/recalls/:id` | One recall incl. raw text |
 | `POST /api/subscribe` | `{subscription, settings}` – create/update |
@@ -179,7 +179,7 @@ subscriptions: turn notifications off and on again in the app.
 | `POST /api/test` | `{endpoint}` – test notification to that device |
 | `POST /api/replay` | `{endpoint, id}` – send a past recall to that device |
 | `POST /api/admin/poll` | Run the poll now (`Authorization: Bearer ADMIN_TOKEN`) |
-| `GET /api/admin/stats` | Anonymous daily counters (30 days) and totals over stored settings (`Authorization: Bearer ADMIN_TOKEN`) |
+| `GET /api/admin/stats` | Feed status incl. last error, 7-day reliability counters, anonymous daily counters (30 days) and totals over stored settings (`Authorization: Bearer ADMIN_TOKEN`) |
 
 ## Risk categories (from Fødevarestyrelsen's own wording)
 
@@ -269,6 +269,12 @@ How it works:
   `BarcodeDetector` path was tested only with a stand-in detector; real
   focus, light and the camera permission prompt on a phone are not covered.
 
+## Owner dashboard and theme
+
+- `/admin` is a small dashboard for the owner: feed health (running / late / failing), reliability and usage tables for today, 7 and 30 days, and the settings overview. It is not linked from the app, is marked `noindex`, and is never cached by the service worker. It needs the `ADMIN_TOKEN` secret: without that secret the Worker answers 403 to every request. The token is sent only as an `Authorization` header and kept in the browser's session storage (or local storage if "Remember on this device" is ticked).
+- Settings → Appearance switches Auto / Light / Dark. The choice is saved on the phone only and is not sent to the server or included in the share link.
+- The privacy text opens in a dialog from Settings and from the footer; the data disclaimer sits in the footer.
+
 ## Privacy and telemetry
 
 **What is stored**
@@ -281,8 +287,8 @@ How it works:
 
 A counter is an event name and a number for one UTC day. There is no user, device, IP address, user agent or time finer than the day. Only names on a fixed allow-list are counted. Records expire after 35 days (KV expiry). At most 400 counts per day are written, to protect the free plan's KV write limit; counts are not atomic and can be slightly off.
 
-- *Reliability, counted by the server while it works:* `poll_failed`, `detail_failed`, `recalls_new`, `parse_unsure`, `risk_unstated`, `push_sent`, `push_rejected`, `push_gone`, `translate_ok`, `translate_failed`. The last 7 days are shown under Settings → Status and in `GET /api/status`.
-- *Usage, counted from requests the app has to make anyway,* so no extra information is read from or sent by the phone for statistics: `feed_loads`, `scan_checks` (the list request made to check a scanned barcode, marked `?via=scan`), `recall_views`, `recall_views_push` (a recall opened by tapping a notification: the notification's link carries `?via=push`), `notifications_on`, `notifications_off`, `settings_synced`. These are visible only through `GET /api/admin/stats` (needs `ADMIN_TOKEN`), together with totals over the stored settings. Allergens and the household switch appear there only when 5 or more devices exist; watch words and typed store names are never listed.
+- *Reliability, counted by the server while it works:* `poll_failed`, `detail_failed`, `recalls_new`, `parse_unsure`, `risk_unstated`, `push_sent`, `push_rejected`, `push_gone`, `translate_ok`, `translate_failed`. They are visible only to the owner, on `/admin`.
+- *Usage, counted from requests the app has to make anyway,* so no extra information is read from or sent by the phone for statistics: `feed_loads`, `scan_checks` (the list request made to check a scanned barcode, marked `?via=scan`), `recall_views`, `recall_views_push` (a recall opened by tapping a notification: the notification's link carries `?via=push`), `notifications_on`, `notifications_off`, `settings_synced`. These are visible only through `GET /api/admin/stats` (needs `ADMIN_TOKEN`), which is what `/admin` shows, together with totals over the stored settings. Allergens and the household switch appear there only when 5 or more devices exist; watch words and typed store names are never listed.
 
 **Deliberately not collected:** clicks, scrolling, session length, location (not requested; no geolocation), device or user identifiers, cookies, fingerprints, third-party analytics, or any beacon sent by the phone for statistics.
 

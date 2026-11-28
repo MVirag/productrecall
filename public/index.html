@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tilbagekald Alert</title>
+  <script>try{var t=JSON.parse(localStorage.getItem("tilbagekald.settings.v1")||"{}").theme;if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
   <meta name="description" content="Besked på telefonen når Fødevarestyrelsen tilbagekalder fødevarer.">
   <meta name="theme-color" content="#103a2e" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14382c" media="(prefers-color-scheme: dark)">
@@ -23,6 +24,10 @@
     </nav>
   </header>
   <main id="main" tabindex="-1"></main>
+  <footer class="foot">
+    <p id="disclaimer" class="small muted"></p>
+    <button type="button" id="open-privacy" class="linkbtn"></button>
+  </footer>
   <noscript>Appen kræver JavaScript.</noscript>
 </body>
 </html>

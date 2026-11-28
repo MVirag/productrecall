@@ -47,8 +47,12 @@
   --fs-meta: 0.9375rem; --lh-meta: 1.3125rem;
   color-scheme: light dark;
 }
+/* The reader can force a theme (Settings > Appearance). Without a choice the phone's own setting decides.
+   The dark tokens live in two places that must stay identical; test/theme.test.js checks it. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0e1411;
     --surface: #17201b;
     --surface-sunken: #212c26;
@@ -74,6 +78,33 @@
     --ok: #7fd99a;
     --ok-tint: #12301c;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1411;
+  --surface: #17201b;
+  --surface-sunken: #212c26;
+  --border: #2f3d35;
+  --border-control: #8fa399;
+  --ink: #e9f1ec;
+  --ink-muted: #a9bab0;
+  --frame: #9fb5a9;
+  --bar: #14382c;
+  --on-bar: #f2f8f4;
+  --bar-hover: #2c624f;
+  --bar-active: #3d7863;
+  --focus: #8ab4ff;
+  --focus-on-bar: #8ab4ff;
+  --brand: #e9f1ec;
+  --brand-hover: #ffffff;
+  --brand-active: #cfdcd4;
+  --on-brand: #0e1411;
+  --health: #ff8f9c;   --health-fill: #ff7a88;   --on-health: #2a0509;   --health-tint: #3b1219; --health-tint-hover: #4a1a22; --health-tint-active: #572129;
+  --allergy: #ffb877;  --allergy-fill: #ffb15c;  --on-allergy: #2b1700;  --allergy-tint: #3a2208;
+  --notacute: #a9c1ff; --notacute-fill: #7ea6ff; --on-notacute: #0a1a3d; --notacute-tint: #17264a;
+  --unfit: #c2cec7;    --unfit-fill: #aab9b0;    --on-unfit: #101a15;    --unfit-tint: #26302b;
+  --ok: #7fd99a;
+  --ok-tint: #12301c;
 }
 
 * { box-sizing: border-box; }
@@ -368,5 +399,39 @@ input[type="text"], input[type="date"] {
 .scan-actions { margin-top: var(--space-5); flex-direction: column; }
 .scan-actions .btn { width: 100%; }
 
-.week { margin: var(--space-2) 0; }
-.week dd { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Segmented control: radios under the hood, so arrow keys and grouping come for free. */
+.seg-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--space-2); background: var(--surface); border: 2px solid var(--border-control); border-radius: var(--radius-md); overflow: hidden; }
+.seg { display: block; margin: 0; }
+.seg + .seg { border-left: 2px solid var(--border-control); }
+.seg-face { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--touch-target); padding: var(--space-2); font-weight: 700; cursor: pointer; overflow-wrap: anywhere; }
+.seg input:checked + .seg-face { background: var(--brand); color: var(--on-brand); }
+.seg input:focus-visible + .seg-face { outline: 3px solid var(--focus); outline-offset: -3px; }
+@media (hover: hover) { .seg input:not(:checked) + .seg-face:hover { background: var(--surface-sunken); } }
+.seg input:not(:checked) + .seg-face:active { background: var(--border); }
+@media (forced-colors: active) { .seg input:checked + .seg-face { forced-color-adjust: none; background: Highlight; color: HighlightText; } }
+
+/* Footer: the data disclaimer and the way into the privacy text. */
+.foot { max-width: 42rem; margin: 0 auto; padding: var(--space-4) var(--space-4) var(--space-6); }
+.foot p { margin: 0 0 var(--space-1); }
+.foot .linkbtn { padding-inline: 0; }
+
+/* Modal (native <dialog>): focus is trapped and Esc closes it without any script. */
+dialog.modal { width: min(32rem, calc(100vw - 2 * var(--space-4))); max-height: min(85vh, 40rem); padding: 0; background: var(--surface); color: var(--ink); border: var(--frame-w) solid var(--frame); border-radius: var(--radius-lg); overflow: hidden; }
+dialog.modal[open] { display: flex; flex-direction: column; }
+dialog.modal::backdrop { background: color-mix(in srgb, var(--frame) 55%, transparent); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4); border-bottom: 1px solid var(--border); }
+.modal-head h2 { margin: 0; }
+.modal-body { padding: var(--space-4); overflow: auto; }
+.modal-body ul { margin: 0; }
+.modal-body li + li { margin-top: var(--space-3); }
+.icon-btn { min-width: var(--touch-target); padding-inline: var(--space-2); justify-content: center; }
+
+/* Owner dashboard */
+.fact-line { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); }
+.btn-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
+.tablewrap { overflow-x: auto; }
+table.stat { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.stat th, table.stat td { padding: var(--space-2); border-bottom: 1px solid var(--border); text-align: right; }
+table.stat th:first-child { text-align: left; font-weight: 400; }
+table.stat thead th { font-weight: 700; }
