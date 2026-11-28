@@ -4,6 +4,7 @@ import { summarize, decide } from './shared/summary.js';
 import { ALLERGENS, ALLERGEN_LABELS, LEVEL_LABELS, LEVELS, vulnerableText, coversAllergen } from './shared/severity.js';
 import { icon } from './icons.js';
 import { isCareful, splitProducts, uniqueStores } from './shared/detail.js';
+import { digitsOnly, hasValidCheckDigit, matchRecalls, barcodeCoverage, formatCode } from './shared/ean.js';
 
 // ------------------------------------------------------------ settings (on device)
 
@@ -94,9 +95,10 @@ async function api(path, body) {
   return data;
 }
 
-async function loadRecalls() {
+// `via` ("scan") tells the server why the list is wanted; the request is the same one the app needs anyway.
+async function loadRecalls(via) {
   try {
-    const d = await api('/api/recalls');
+    const d = await api(via ? `/api/recalls?via=${via}` : '/api/recalls');
     cache = { recalls: d.recalls, lastPoll: d.lastPoll, lastError: d.lastError, offline: d._fromCache || false };
   } catch (e) {
     if (!cache.recalls) throw e;
@@ -232,18 +234,22 @@ function card(r) {
 
 async function viewFeed() {
   setTitle('');
+  const tok = navToken;
   const m = main();
   m.replaceChildren(h('p', { class: 'muted', role: 'status' }, t('loading')));
   try {
     const { recalls, lastPoll } = await loadRecalls();
+    if (tok !== navToken) return;
     const list = recalls.length ? h('ul', { class: 'cards' }, recalls.map(card)) : h('p', { class: 'muted' }, t('emptyFeed'));
     m.replaceChildren(
       h('h1', { class: 'visually-hidden' }, t('navFeed')),
       !navigator.onLine ? h('p', { class: 'notice' }, t('offline')) : null,
+      h('a', { href: '#/scan', class: 'btn scan-cta' }, icon('scan'), t('scanCta')),
       list,
       h('p', { class: 'muted small' }, `${t('lastCheck')}: ${fmtTime(lastPoll)}`),
     );
   } catch {
+    if (tok !== navToken) return;
     m.replaceChildren(h('p', { class: 'notice' }, t('loadError')));
   }
 }
@@ -289,6 +295,8 @@ function checker(r, careful = false) {
   };
   dateIn.addEventListener('input', run);
   eanIn.addEventListener('input', run);
+  // Coming from a scan: the barcode is already known, so only the date is left to type.
+  if (scanContext?.exact.includes(r.id) && eans.size) { eanIn.value = scanContext.code; run(); }
   return h('section', { class: 'checker', 'aria-labelledby': 'chk' },
     h('h2', { id: 'chk' }, t('doIHave')),
     allDates ? h('p', { class: 'check-result bad' }, t('checkResultAll')) : h('p', { class: 'muted' }, t('doIHaveHelp')),
@@ -305,15 +313,24 @@ function factRow(iconName, title, label) {
     h('div', { class: 'fact-text' }, h('p', { class: 'fact-title' }, title), h('p', { class: 'muted small' }, label)));
 }
 
-async function viewRecall(id) {
+let lastRecall = null;
+// `via` is "push" when the reader came from a notification; `reuse` redraws without asking the server again.
+async function viewRecall(id, via, reuse = false) {
+  const tok = navToken;
   const m = main();
   m.replaceChildren(h('p', { class: 'muted', role: 'status' }, t('loading')));
   let r;
-  try {
-    r = await api(`/api/recalls/${encodeURIComponent(id)}`);
-  } catch {
-    r = cache.recalls?.find((x) => x.id === id);
+  if (reuse && lastRecall?.id === id) {
+    r = lastRecall;
+  } else {
+    try {
+      r = await api(`/api/recalls/${encodeURIComponent(id)}${via === 'push' ? '?via=push' : ''}`);
+    } catch {
+      r = cache.recalls?.find((x) => x.id === id);
+    }
+    lastRecall = r || null;
   }
+  if (tok !== navToken) return;
   if (!r) {
     m.replaceChildren(h('p', { class: 'notice' }, t('notFound')), h('a', { href: '#/', class: 'btn' }, t('back')));
     return;
@@ -393,7 +410,7 @@ async function viewRecall(id) {
         showOriginal.has(r.id) ? 'Showing the original Danish text. ' : 'Machine-translated from Danish. ',
         h('button', { type: 'button', class: 'linkbtn', onclick: () => {
           if (showOriginal.has(r.id)) showOriginal.delete(r.id); else showOriginal.add(r.id);
-          viewRecall(r.id);
+          viewRecall(r.id, undefined, true);
         } }, showOriginal.has(r.id) ? 'Show English' : 'Show original')) : null,
       settings.lang === 'en' && !r.en ? h('p', { class: 'muted small' }, 'English translation not ready yet – showing the Danish notice.') : null,
       h('ul', { class: 'facts' },
@@ -559,7 +576,15 @@ async function viewSettings() {
       h('h2', {}, t('status')),
       h('p', {}, `${t('lastCheck')}: ${fmtTime(status?.lastPoll)}`),
       status?.lastError ? h('p', {}, `${t('feedError')}: ${status.lastError.message} (${fmtTime(status.lastError.at)})`) : null,
+      status?.last7days ? h('dl', { class: 'week' },
+        [['pushSent', 'push_sent'], ['pushRejected', 'push_rejected'], ['pushGone', 'push_gone'], ['recallsNew', 'recalls_new'], ['pollFailed', 'poll_failed'], ['detailFailed', 'detail_failed']]
+          .flatMap(([label, key]) => [h('dt', {}, t(`week_${label}`)), h('dd', {}, String(status.last7days[key] ?? 0))])) : null,
+      status?.last7days ? h('p', {}, t('weekNote')) : null,
       h('p', {}, t('about'))),
+
+    h('section', { class: 'panel small' },
+      h('h2', {}, t('privacyTitle')),
+      h('ul', { class: 'plain-list' }, ['privacyPhone', 'privacyServer', 'privacyCounts', 'privacyOthers'].map((k) => h('li', {}, t(k))))),
   );
 }
 
@@ -593,6 +618,162 @@ function viewImport(code) {
   );
 }
 
+// ------------------------------------------------------------ barcode scan
+
+let activeScanner = null;
+// Bumped on every navigation: a screen that finishes loading after the reader has moved on must not draw itself.
+let navToken = 0;
+let scanContext = null; // { code, exact: [recall ids] } after a scan, so the pack check can reuse the barcode
+
+function stopScanner() {
+  navToken += 1;
+  activeScanner?.stop();
+  activeScanner = null;
+}
+
+const SCAN_STATES = {
+  starting: 'scanStarting', scanning: 'scanScanning', denied: 'scanDenied',
+  nocamera: 'scanNoCamera', unsupported: 'scanUnsupported', error: 'scanError',
+};
+
+function openScanResult(code) {
+  navigator.vibrate?.(60);
+  location.hash = `#/scan/${code}`;
+}
+
+async function viewScan() {
+  setTitle(t('scanTitle'));
+  const m = main();
+  const video = h('video', { class: 'scan-video', playsinline: true, muted: true, autoplay: true, 'aria-label': t('scanVideoLabel') });
+  const viewfinder = h('div', { class: 'scanner' }, video, h('div', { class: 'scan-frame', 'aria-hidden': 'true' }));
+  const helpLine = h('p', { class: 'muted' }, t('scanHelp'));
+  const status = h('p', { class: 'scan-status', role: 'status', 'aria-live': 'polite' }, t('scanStarting'));
+  const torchBtn = h('button', { type: 'button', class: 'btn btn-quiet', hidden: true }, icon('zap'), t('scanTorchOn'));
+  const photoIn = h('input', { type: 'file', accept: 'image/*', capture: 'environment', class: 'visually-hidden', id: 'scanphoto' });
+  const photoBtn = h('label', { class: 'btn btn-quiet file-btn' }, icon('image'), t('scanPhoto'), photoIn);
+  const codeIn = h('input', { type: 'text', id: 'scancode', inputmode: 'numeric', autocomplete: 'off', enterkeyhint: 'search', pattern: '[0-9 ]*', 'aria-describedby': 'scancode-err' });
+  const codeErr = h('p', { class: 'scan-error small', id: 'scancode-err', role: 'alert' });
+
+  photoIn.addEventListener('change', async () => {
+    const file = photoIn.files?.[0];
+    photoIn.value = '';
+    if (!file) return;
+    status.textContent = t('scanPhotoBusy');
+    try {
+      const { decodePhoto } = await import('./scan.js');
+      const code = await decodePhoto(file);
+      if (code) openScanResult(code); else status.textContent = t('scanPhotoNone');
+    } catch {
+      status.textContent = t('scanPhotoNone');
+    }
+  });
+  const manual = (e) => {
+    e.preventDefault();
+    const digits = digitsOnly(codeIn.value);
+    if (digits.length < 8 || digits.length > 14) {
+      codeErr.textContent = t('scanManualShort');
+      codeIn.setAttribute('aria-invalid', 'true');
+      return;
+    }
+    openScanResult(digits);
+  };
+
+  m.replaceChildren(
+    h('div', { class: 'back-row' }, h('a', { href: '#/', class: 'back' }, icon('arrow-left'), t('back'))),
+    h('h1', {}, t('scanTitle')),
+    helpLine,
+    viewfinder,
+    status,
+    h('div', { class: 'row' }, torchBtn, photoBtn),
+    h('section', { class: 'panel scan-manual' },
+      h('form', { onsubmit: manual, novalidate: true },
+        h('label', { for: 'scancode' }, t('scanManual')),
+        h('div', { class: 'add-form' }, codeIn, h('button', { class: 'btn btn-primary', type: 'submit' }, t('scanManualCheck'))),
+        codeErr)),
+    h('p', { class: 'muted small' }, t('scanLimit')),
+  );
+
+  const token = navToken;
+  const setState = (name) => {
+    status.textContent = t(SCAN_STATES[name] || 'scanError');
+    const off = name !== 'scanning' && name !== 'starting';
+    viewfinder.classList.toggle('is-off', off);
+    helpLine.hidden = off; // no frame on screen, so no "hold it inside the frame"
+    if (off) torchBtn.hidden = true;
+  };
+  let scanner;
+  try {
+    const { startScanner } = await import('./scan.js');
+    scanner = await startScanner(video, { onCode: openScanResult, onState: setState });
+  } catch {
+    setState('error');
+    return;
+  }
+  if (token !== navToken) { scanner.stop(); return; } // the reader left the screen while the camera was starting
+  activeScanner = scanner;
+  if (scanner.canTorch) {
+    torchBtn.hidden = false;
+    torchBtn.addEventListener('click', async () => {
+      const on = await scanner.toggleTorch();
+      torchBtn.replaceChildren(icon('zap'), t(on ? 'scanTorchOff' : 'scanTorchOn'));
+    });
+  }
+}
+
+async function viewScanResult(code) {
+  setTitle(t('scanTitle'));
+  const tok = navToken;
+  const m = main();
+  m.replaceChildren(h('p', { class: 'muted', role: 'status' }, t('loading')));
+  let recalls;
+  try {
+    ({ recalls } = await loadRecalls('scan'));
+  } catch {
+    if (tok !== navToken) return;
+    m.replaceChildren(h('p', { class: 'notice' }, t('loadError')), h('a', { href: '#/scan', class: 'btn' }, t('resultAgain')));
+    return;
+  }
+  if (tok !== navToken) return;
+  const valid = hasValidCheckDigit(code);
+  const hits = valid ? matchRecalls(recalls, code) : [];
+  const cov = barcodeCoverage(recalls);
+  scanContext = { code, exact: hits.filter((x) => !x.loose).map((x) => x.recall.id) };
+
+  let body;
+  if (!valid) {
+    body = h('p', { class: 'notice', role: 'status' }, t('resultInvalid'));
+  } else if (hits.length) {
+    body = [
+      h('h1', {}, hits.length === 1 ? t('resultMatchOne') : t('resultMatchMany').replace('{n}', hits.length)),
+      h('p', {}, t('resultMatchNext')),
+      ...hits.map((x) => h('section', { class: 'scan-hit' },
+        h('ul', { class: 'cards' }, card(x.recall)),
+        x.loose ? h('p', { class: 'notice' }, t('resultLoose')) : null,
+        h('h2', {}, t('resultProduct')),
+        h('ul', { class: 'products' }, x.products.map((p) => productBlock(p))))),
+    ];
+  } else {
+    // No match is never an all-clear: the unstated sticker (question mark), not a tick.
+    body = h('div', { class: 'sticker sev-unstated', role: 'status' },
+      h('div', { class: 'die' }, icon('unstated')),
+      h('div', { class: 'sticker-text' },
+        h('p', { class: 'verdict' }, t('resultNoneTitle')),
+        h('p', {}, cov.recalls
+          ? t('resultNoneBody').replace('{total}', cov.recalls).replace('{withEan}', cov.withEan)
+          : t('resultNoneEmpty'))));
+  }
+
+  m.replaceChildren(
+    h('div', { class: 'back-row' }, h('a', { href: '#/scan', class: 'back' }, icon('arrow-left'), t('back'))),
+    h('p', { class: 'scan-code' }, `${t('resultCode')} `, h('strong', {}, formatCode(code))),
+    body,
+    h('div', { class: 'row scan-actions' },
+      h('a', { href: '#/scan', class: 'btn btn-primary' }, icon('scan'), t('resultAgain')),
+      h('a', { href: '#/', class: 'btn btn-quiet' }, t('resultAll'))),
+  );
+  window.scrollTo(0, 0);
+}
+
 // ------------------------------------------------------------ router / shell
 
 function applyLang() {
@@ -603,15 +784,19 @@ function applyLang() {
 }
 
 function route() {
+  stopScanner();
   const hash = location.hash || '#/';
   for (const a of document.querySelectorAll('nav a')) {
     const active = (a.getAttribute('href') === '#/settings') === hash.startsWith('#/settings');
     if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
-  const m = hash.match(/^#\/recall\/(.+)$/);
-  if (m) return viewRecall(decodeURIComponent(m[1]));
+  const m = hash.match(/^#\/recall\/([^?]+)(?:\?via=(push))?$/);
+  if (m) return viewRecall(decodeURIComponent(m[1]), m[2]);
   const imp = hash.match(/^#\/import\/([A-Za-z0-9_-]+)$/);
   if (imp) return viewImport(imp[1]);
+  if (hash === '#/scan') return viewScan();
+  const scanned = hash.match(/^#\/scan\/(\d{8,14})$/);
+  if (scanned) return viewScanResult(scanned[1]);
   if (hash.startsWith('#/settings')) return viewSettings();
   return viewFeed();
 }

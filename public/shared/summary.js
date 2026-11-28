@@ -146,7 +146,7 @@ export function notificationFor(recall, settings = {}) {
     title: title.slice(0, 120),
     body: body.slice(0, 240),
     tag: recall.id,
-    url: `/#/recall/${encodeURIComponent(recall.id)}`,
+    url: `/#/recall/${encodeURIComponent(recall.id)}?via=push`, // lets the server count taps on notifications, anonymously
     image: recall.image || undefined,
   };
 }

@@ -23,7 +23,9 @@
   // Push (VAPID) keys are generated automatically and kept in KV.
   // Optional secrets: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY (to pin keys),
   // ADMIN_TOKEN (enables POST /api/admin/poll).
-  "observability": { "enabled": true },
+  // Our own log lines (one summary per check, errors) stay; the automatic per-request invocation logs are off
+  // so that request details such as IP addresses are not kept in logs.
+  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
   // Trial ("preview") builds that Cloudflare makes for pull-request branches.
   // No cron there, and deliberately no KV: a preview can never read or push
   // to real subscriptions. Production deploys from main ignore this block.

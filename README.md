@@ -20,6 +20,8 @@ can check whether you have it at home.
   always sounds and notifies even in "only my stores" mode.
 - **Sharing**: share a recall to WhatsApp/SMS etc., and share your settings
   as a link a partner can open to get the same stores, words and household.
+- **Barcode scan**: scan the barcode of a product at home and see whether it
+  is in a recent recall, then go straight to the date check. Nothing is saved.
 - **English**: each recall's full text is machine-translated (Cloudflare
   Workers AI) when the app is in English, with the Danish original one tap away.
 - **Push notifications** with the same short text as the card. Tapping one
@@ -157,7 +159,7 @@ recall.
 | `VAPID_PUBLIC_KEY` | optional secret | Pin the Web Push public key (otherwise generated and kept in KV) |
 | `VAPID_PRIVATE_KEY` | optional secret | Pin the Web Push private key (base64url `d`) |
 | `VAPID_SUBJECT` | var | Contact URL sent to push services (your Worker URL) |
-| `ADMIN_TOKEN` | optional secret | Enables `POST /api/admin/poll` |
+| `ADMIN_TOKEN` | optional secret | Enables `POST /api/admin/poll` and `GET /api/admin/stats` |
 | `KV` | binding | Workers KV namespace (created automatically on first deploy) |
 | `AI` | binding | Workers AI, for English translations (optional: without it the app shows Danish) |
 
@@ -169,7 +171,7 @@ subscriptions: turn notifications off and on again in the app.
 | Method & path | Purpose |
 |---|---|
 | `GET /api/config` | VAPID public key, default chains |
-| `GET /api/status` | Last poll time, last error |
+| `GET /api/status` | Last poll time, last error, 7-day reliability counters |
 | `GET /api/recalls` | Stored recalls (newest 60, without raw text) |
 | `GET /api/recalls/:id` | One recall incl. raw text |
 | `POST /api/subscribe` | `{subscription, settings}` – create/update |
@@ -177,6 +179,7 @@ subscriptions: turn notifications off and on again in the app.
 | `POST /api/test` | `{endpoint}` – test notification to that device |
 | `POST /api/replay` | `{endpoint, id}` – send a past recall to that device |
 | `POST /api/admin/poll` | Run the poll now (`Authorization: Bearer ADMIN_TOKEN`) |
+| `GET /api/admin/stats` | Anonymous daily counters (30 days) and totals over stored settings (`Authorization: Bearer ADMIN_TOKEN`) |
 
 ## Risk categories (from Fødevarestyrelsen's own wording)
 
@@ -227,6 +230,72 @@ recall. So translation is treated as untrusted:
 - The product table, store chips, dates and the quoted risk sentence are
   never machine-translated.
 
+## Barcode scan
+
+*Scan stregkode* on the feed opens the camera. A barcode is read in the
+browser; nothing is uploaded or stored. The code is compared with the
+barcodes (EAN/GTIN) printed in the stored recalls and the result is one of:
+
+- **Match**: the recall card and the matched product are shown. Opening the
+  recall puts the barcode into the "Har jeg den?" check, so only the date is
+  left to type.
+- **Approximate match**: the notice prints a number that is not a valid
+  barcode (seen once in the 30 barcodes of the saved notices: 14 digits, bad
+  check digit). Its first 12 digits are compared and the screen says it is
+  approximate and to check name and size.
+- **No match**: shown with the "risk not stated" question-mark sticker and
+  the wording *"Ingen match, men det er ikke en garanti"*, with the number
+  of recent recalls that print barcodes at all. It is never worded or shown
+  as an all-clear.
+- **Invalid number** (check digit fails): reported as such; no match attempted.
+
+Ways to give a barcode: the live camera, *Tag et billede* (a photo, for when
+live focus fails), or typing the number under the barcode.
+
+How it works:
+
+- Reader: the browser's own `BarcodeDetector` where it exists (Chrome on
+  Android), otherwise ZXing (`public/vendor/zxing-library.min.js`, Apache-2.0,
+  v0.23.0, with its licence file), loaded only when the scan screen opens and
+  then cached for offline use.
+- A code is accepted only when its check digit is valid and the same code was
+  read twice in a row, so a misread never reaches the matcher.
+- `public/shared/ean.js` matches codes as 14-digit GTINs, so EAN-13, UPC-A
+  and EAN-8 forms of one product agree. `test/ean.test.js` checks it against
+  the barcodes in the 17 real notices.
+- Verified in headless Chromium with a fake camera filming a generated EAN-13
+  of a real notice's barcode (ZXing path), a photo upload, typed numbers, a
+  denied camera, a wrong check digit and the English screens. The native
+  `BarcodeDetector` path was tested only with a stand-in detector; real
+  focus, light and the camera permission prompt on a phone are not covered.
+
+## Privacy and telemetry
+
+**What is stored**
+
+- *On the phone:* settings (stores, watch words, language, allergies, household switch, quiet categories). Barcodes and camera images are processed on the phone only; no request contains a scanned barcode.
+- *On the server (Cloudflare KV), only while notifications are on:* the device's push address and the same settings, so notifications can be tailored. Turning notifications off in the app deletes that record (`POST /api/unsubscribe`); a device the push service reports as gone is deleted automatically.
+- *Anonymous counters,* below.
+
+**Anonymous counters (`src/stats.js`)**
+
+A counter is an event name and a number for one UTC day. There is no user, device, IP address, user agent or time finer than the day. Only names on a fixed allow-list are counted. Records expire after 35 days (KV expiry). At most 400 counts per day are written, to protect the free plan's KV write limit; counts are not atomic and can be slightly off.
+
+- *Reliability, counted by the server while it works:* `poll_failed`, `detail_failed`, `recalls_new`, `parse_unsure`, `risk_unstated`, `push_sent`, `push_rejected`, `push_gone`, `translate_ok`, `translate_failed`. The last 7 days are shown under Settings → Status and in `GET /api/status`.
+- *Usage, counted from requests the app has to make anyway,* so no extra information is read from or sent by the phone for statistics: `feed_loads`, `scan_checks` (the list request made to check a scanned barcode, marked `?via=scan`), `recall_views`, `recall_views_push` (a recall opened by tapping a notification: the notification's link carries `?via=push`), `notifications_on`, `notifications_off`, `settings_synced`. These are visible only through `GET /api/admin/stats` (needs `ADMIN_TOKEN`), together with totals over the stored settings. Allergens and the household switch appear there only when 5 or more devices exist; watch words and typed store names are never listed.
+
+**Deliberately not collected:** clicks, scrolling, session length, location (not requested; no geolocation), device or user identifiers, cookies, fingerprints, third-party analytics, or any beacon sent by the phone for statistics.
+
+**Logs:** the Worker writes its own log lines (one summary per check, errors). Cloudflare's automatic per-request invocation logs are switched off (`observability.logs.invocation_logs: false`) so that request details such as IP addresses are not kept in logs. Cloudflare still sees request data such as IP addresses to serve the app, as the hosting provider.
+
+**Third parties:** Cloudflare (hosting, storage, translation), Google's push service (delivers notifications; content is encrypted), and Fødevarestyrelsen's image server (product photos load directly from the phone).
+
+**Before other households use the app.** This is a description of the design, not legal advice. As long as only the author's household uses it, the data is the author's own. For other people:
+
+- Allergies and the "pregnant, small children or weak immune system" switch are stored next to a device identifier. They are arguably health data (GDPR art. 9) and need explicit consent plus a privacy notice. The alternative is to keep them on the phone only, which would change how "only my stores" mode can decide to notify.
+- A privacy notice (who is responsible, what is processed, why, how long, rights, contact) and Cloudflare's data processing terms should be in place.
+- Anything that stores or reads information on the phone for statistics (cookies, local IDs, scripts, beacons) generally needs consent under the ePrivacy rules; none is used.
+
 ## Non-food recalls (checked 27 Nov 2026)
 
 - **Sikkerhedsstyrelsen (sik.dk):** no usable recall data. Its only RSS feed
@@ -237,6 +306,11 @@ recall. So translation is treated as untrusted:
 - **EU Safety Gate:** not checked yet; the likely source if non-food is added.
 
 ## Known limitations
+
+- **Barcode scan only matches what the notice prints.** 9 of the 17 saved
+  notices (30 of 71 products) list barcodes. A recalled product from a notice
+  without barcodes, or one older than the stored recalls (the newest 60), is
+  not found.
 
 - **Not yet verified:** that Fødevarestyrelsen accepts requests from
   Cloudflare's network, and real push delivery to an Android phone.
