@@ -148,6 +148,13 @@ h3 { font-size: var(--fs-verdict); line-height: var(--lh-verdict); margin: 0 0 v
 /* The verdict band: shape icon plus words across the top of a sticker. Solid only for the levels that can hurt. */
 .band { display: flex; align-items: center; gap: var(--space-2); padding: 10px var(--space-4); background: var(--band); color: var(--on-band); font-weight: 800; font-size: var(--fs-verdict); line-height: var(--lh-verdict); }
 .band .icon { width: var(--icon-md); height: var(--icon-md); stroke-width: 2.2; }
+.band-text { min-width: 0; }
+/* The black relevance seal sits at the right end of the band: words when they fit, a target icon alone when they do not. */
+.seal { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; margin-left: auto; padding: 3px var(--space-2); background: var(--brand); color: var(--on-brand); border-radius: var(--radius-pill); font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 700; }
+.band .seal .icon { width: var(--icon-sm); height: var(--icon-sm); stroke-width: 2; }
+.seal-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.band-roomy .seal-text { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+@container card (min-width: 480px) { .seal-text { position: static; width: auto; height: auto; overflow: visible; clip: auto; } }
 
 /* Product photo, or a placeholder when there is none. */
 .photo { display: grid; place-items: center; width: var(--photo-size); height: var(--photo-size); overflow: hidden; background: var(--photo-ground); border: 1px solid var(--border); border-radius: var(--radius-md); }
@@ -158,7 +165,7 @@ h3 { font-size: var(--fs-verdict); line-height: var(--lh-verdict); margin: 0 0 v
 /* Feed: each recall is a sticker. Verdict band first, then what the product is (name and picture), then what to do.
    A health sticker has a red frame and a tinted ground. */
 .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
-.card { display: block; overflow: hidden; text-decoration: none; color: var(--ink); background: var(--surface); border: var(--frame-w) solid var(--frame); border-radius: var(--radius-lg); }
+.card { container: card / inline-size; display: block; overflow: hidden; text-decoration: none; color: var(--ink); background: var(--surface); border: var(--frame-w) solid var(--frame); border-radius: var(--radius-lg); }
 .card.sev-health { border: 3px solid var(--health-fill); background: var(--health-tint); }
 @media (hover: hover) {
   .card:hover { background: var(--surface-sunken); }

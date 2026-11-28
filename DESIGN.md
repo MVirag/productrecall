@@ -302,7 +302,7 @@ The level class (`.sev-*`) sets `--sev`, `--fill`, `--on-fill`, `--tint`, `--ban
 
 A single column, `main` max 42rem, 16px gutters, 4rem bottom padding. The bar's padding aligns to the same column. Spacing scale 4/8/12/16/24/32px (`--space-1..6`). Feed stickers are separated by 12px. Touch target 48px; chip 36px with a 48px hit area.
 
-A feed sticker is the band, then a body with 12px gaps: a two-column top (name, facts line, reason tags and optional seal at left; 96px photo at right), the full-width action strip, and a footer row with store at left and date at right. Below 480px the brand name is visually hidden (the mark remains) and nav pills tighten to 12px padding. Below 380px the photo shrinks to 80px (`--photo-size`).
+A feed sticker is the band (with the relevance seal at its right end when the recall is from the reader's store), then a body with 12px gaps: a two-column top (name, facts line, reason tags at left; 96px photo at right), the full-width action strip, and a footer row with store at left and date at right. Below 480px the brand name is visually hidden (the mark remains) and nav pills tighten to 12px padding. Below 380px the photo shrinks to 80px (`--photo-size`).
 
 Detail screen order: share and back row; verdict sticker (band, plus one note when vulnerable groups are named); product title (with seal and published date) beside a 112px photo; authority quote (three lines then a read-more toggle); translation note; facts list (what to do, why, where sold); "Appen er usikker på…" note; "Har jeg den?" check; products; for levels that can hurt the full advice text; one "Læs hele meddelelsen" disclosure; official link; original text.
 
@@ -315,12 +315,12 @@ Flat. There are no shadows. Depth is a frame (2px ink, or 3px red for health), a
 
 ## Shapes
 
-Radii: 6px (`--radius-xs`, tags, checkboxes), 8px (`--radius-sm`, preformatted text), 12px (`--radius-md`, buttons, inputs, notices, photo tile, action strip, quote), 14px (`--radius-lg`, stickers, panels, facts, checker), 999px (pills: nav, chips, relevance seal, back link). The sticker clips its band to the 14px corner. Level shapes (octagon, triangle, hexagon, diamond, circle, rounded square) live as 24px icons inside the band at stroke 2.2. Icons are Lucide-style outline, drawn inline in `public/icons.js`, 24px grid, 2px round stroke; the action strip uses a circle-check, the footer a map pin, the missing-photo tile a 40px package. The brand mark in the bar is a 28px ring (3px stroke) with an 8px dot.
+Radii: 6px (`--radius-xs`, tags, checkboxes), 8px (`--radius-sm`, preformatted text), 12px (`--radius-md`, buttons, inputs, notices, photo tile, action strip, quote), 14px (`--radius-lg`, stickers, panels, facts, checker), 999px (pills: nav, chips, relevance seal, back link). The sticker clips its band to the 14px corner. Level shapes (octagon, triangle, hexagon, diamond, circle, rounded square) live as 24px icons inside the band at stroke 2.2. Icons are Lucide-style outline, drawn inline in `public/icons.js`, 24px grid, 2px round stroke; the action strip uses an icon for the action itself (trash can to discard, exchange arrows to return, info mark to read the notice), the footer a map pin, the missing-photo tile a 40px package. The brand mark in the bar is a 28px ring (3px stroke) with an 8px dot.
 
 ## Components
 
 ### Sticker (feed card and detail sticker)
-- **Anatomy (feed):** verdict band; body with product name and 96px photo, reason tags, action strip with check icon, footer (pin and store left, `dd.mm.yyyy` date right).
+- **Anatomy (feed):** verdict band; body with product name and 96px photo, reason tags, action strip with the action's icon, footer (pin and store left, `dd.mm.yyyy` date right).
 - **Rest:** white ground, 2px `--frame` border, 14px radius, overflow clipped.
 - **Health:** 3px `--health-fill` frame, `--health-tint` ground. Tags and the action strip sit on white.
 - **Hover:** `--surface-sunken` (health: `--health-tint-hover`). **Pressed:** `--border` (health: `--health-tint-active`).
@@ -346,7 +346,7 @@ Pills on the bar, 36px tall with a 48px hit area, weight 700, no underlines. **C
 
 ### Tags and Badges
 - **Tag:** a reason or allergen in the recall's level colour, tint ground, 6px radius, weight 700. **Solid tag:** the household's allergen, level fill with the target icon.
-- **Relevance seal (`.badge-mine`):** black ink pill with the target icon and "Din butik" or the watch-word hit, on-brand text, weight 700. There is no scope badge.
+- **Relevance seal:** black ink pill with the target icon, on-brand text, weight 700. For a recall from the reader's store it sits at the right end of the verdict band (`.seal`): the words "Din butik" show when the verdict is short (18 characters or fewer, or the card is 480px wide or more), otherwise the seal is the icon alone and the words stay for screen readers. A watch-word hit stays a `.badge-mine` in the body. There is no scope badge.
 
 ### Checker ("Har jeg den?")
 A sticker: surface ground, 2px frame, 14px radius. Results: `bad` in `--health`, `ok` in `--ok`, both weight 700. A "no match" is never read as safe on a level that can hurt; "Jeg kan ikke læse datoen" tells the reader to assume it applies when name and size match.

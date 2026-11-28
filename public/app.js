@@ -162,9 +162,19 @@ function setTitle(text) {
   document.title = text ? `${text} · ${t('appName')}` : t('appName');
 }
 
+// The icon says what to do: a trash can to discard, exchange arrows to return (or discard), an info mark to read the notice.
+function actionIcon(action) {
+  const name = { discard: 'trash', return_or_discard: 'exchange' }[action?.kind] || 'info';
+  return icon(name);
+}
+
 // A level's verdict as a full-width band: shape icon plus the Danish words, filled by level.
-function band(s) {
-  return h('div', { class: 'band' }, icon(s.severity.level, { md: true }), h('span', {}, s.severityText));
+function band(s, seal = null) {
+  const text = s.severityText;
+  // The seal shows its words only when the verdict is short enough to share the line; otherwise it is icon-only
+  // (the words stay in the page for screen readers).
+  return h('div', { class: `band${text.length <= 18 ? ' band-roomy' : ''}` },
+    icon(s.severity.level, { md: true }), h('span', { class: 'band-text' }, text), seal);
 }
 
 // Detail screen: the recall as a door sticker. A note under the band says who is especially at risk,
@@ -220,11 +230,13 @@ function card(r) {
   const s = summarize(r, settings, settings.lang);
   const d = decide(r, settings);
   const lvl = s.severity.level;
-  const badge = badgeFor(s, d);
+  // A recall from the reader's store gets the black seal in the band; a watch-word hit stays a badge in the body.
+  const seal = s.mine ? h('span', { class: 'seal' }, icon('target'), h('span', { class: 'seal-text' }, t('yourStore'))) : null;
+  const badge = s.mine ? null : badgeFor(s, d);
   const meta = [s.size, s.dates].filter(Boolean).join(' · ');
   return h('li', {},
     h('a', { class: `card sev-${lvl}`, href: `#/recall/${encodeURIComponent(r.id)}` },
-      band(s),
+      band(s, seal),
       h('div', { class: 'card-body' },
         // What product is it? The name and the picture come first.
         h('div', { class: 'card-top' },
@@ -234,7 +246,7 @@ function card(r) {
             reasonTags(r, s),
             badge ? h('div', { class: 'card-tags' }, badge) : null),
           photo(r)),
-        h('p', { class: 'card-action' }, icon('done'), s.action),
+        h('p', { class: 'card-action' }, actionIcon(r.action), s.action),
         h('div', { class: 'card-meta' },
           h('span', { class: 'store' }, icon('pin'), s.store),
           h('time', { datetime: r.published }, fmtDate(r.published))))));
@@ -405,7 +417,7 @@ async function viewRecall(id) {
         } }, showOriginal.has(r.id) ? 'Show English' : 'Show original')) : null,
       settings.lang === 'en' && !r.en ? h('p', { class: 'muted small' }, 'English translation not ready yet – showing the Danish notice.') : null,
       h('ul', { class: 'facts' },
-        factRow('done', s.action, t('whatToDo')),
+        factRow(r.action?.kind === 'discard' ? 'trash' : r.action?.kind === 'return_or_discard' ? 'exchange' : 'info', s.action, t('whatToDo')),
         factRow('tag', s.reason, t('why')),
         factRow('pin', s.store, t('whereSold'))),
       unsure.length ? h('p', { class: 'muted small' }, `${t('unsure')}: ${unsure.join(', ')}.`) : null,
