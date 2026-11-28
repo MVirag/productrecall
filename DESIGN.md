@@ -304,7 +304,7 @@ A single column, `main` max 42rem, 16px gutters, 4rem bottom padding. The bar's 
 
 A feed sticker is the band (with the relevance seal at its right end when the recall is from the reader's store), then a body with 12px gaps: a two-column top (name, facts line, reason tags at left; 96px photo at right), the full-width action strip, and a footer row with store at left and date at right. Below 480px the brand name is visually hidden (the mark remains) and nav pills tighten to 12px padding. Below 380px the photo shrinks to 80px (`--photo-size`).
 
-Detail screen order: share and back row; verdict sticker (band, plus one note when vulnerable groups are named); product title (with seal and published date) beside a 112px photo; authority quote (three lines then a read-more toggle); translation note; facts list (what to do, why, where sold); "Appen er usikker på…" note; "Har jeg den?" check; products; for levels that can hurt the full advice text; one "Læs hele meddelelsen" disclosure; official link; original text.
+Detail screen order: share and back row; verdict sticker (band, plus one note when vulnerable groups are named); product title (with the relevance badge and published date) beside a 112px photo; authority quote (three lines then a read-more toggle); translation note; facts list (what to do, why, where sold); "Appen er usikker på…" note; "Har jeg den?" check; products; for levels that can hurt the full advice text; one "Læs hele meddelelsen" disclosure; official link; original text.
 
 ## Elevation & Depth
 
