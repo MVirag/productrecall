@@ -5,6 +5,8 @@
 import { FEED_URL, parseRss, parseDetail, fromRssOnly } from './parse.js';
 import { decide, notificationFor } from '../public/shared/summary.js';
 import { sendPush } from './push.js';
+import { addCounts } from './stats.js';
+import { classify } from '../public/shared/severity.js';
 import { translateRecall, textHash, TRANSLATE_VERSION } from './translate.js';
 
 export const KEYS = { state: 'state', recalls: 'recalls', subPrefix: 'sub:' };
@@ -66,6 +68,8 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
   const state = await loadState(kv);
   const recalls = await loadRecalls(kv);
   const summary = { newIds: [], fetched: [], failed: [], notified: 0, seeded: false };
+  const counts = {}; // anonymous reliability counters, written once at the end
+  const bump = (name, n = 1) => { counts[name] = (counts[name] || 0) + n; };
 
   let items;
   try {
@@ -76,6 +80,8 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
     state.lastPoll = now.toISOString();
     await kv.put(KEYS.state, JSON.stringify(state));
     summary.error = state.lastError.message;
+    bump('poll_failed');
+    await addCounts(env, counts, now);
     return summary;
   }
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -118,6 +124,7 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
     } catch (e) {
       job.attempts++;
       summary.failed.push({ id: job.id, error: String(e.message || e) });
+      bump('detail_failed');
       if (job.attempts < MAX_ATTEMPTS) {
         state.pending.push(job);
         continue;
@@ -130,10 +137,15 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
     recall.firstSeen = prev?.firstSeen || now.toISOString();
     if (prev?.en && prev.en.hash === textHash(recall)) recall.en = prev.en; // text unchanged
     upsert(recalls, recall);
-    if (job.notify) toNotify.push(recall);
+    if (job.notify) {
+      toNotify.push(recall);
+      bump('recalls_new');
+      if (recall.uncertain?.length) bump('parse_unsure');
+      if (classify(recall).level === 'unstated') bump('risk_unstated');
+    }
   }
 
-  if (toNotify.length) summary.notified = await notifyAll(env, toNotify, { fetchImpl });
+  if (toNotify.length) summary.notified = await notifyAll(env, toNotify, { fetchImpl, counts });
 
   // English translations, after notifying so pushes are never delayed by AI.
   let translated = 0;
@@ -147,10 +159,12 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
         r.en = await translateRecall(env.AI, r);
         delete r.enError;
         summary.translated.push(r.id);
+        bump('translate_ok');
       } catch (e) {
         delete r.en; // never keep an older, unchecked translation around
         r.enError = { at: now.toISOString(), version: TRANSLATE_VERSION, message: String(e.message || e).slice(0, 300) };
         summary.translateError = r.enError.message;
+        bump('translate_failed');
       }
       translated++;
     }
@@ -163,11 +177,13 @@ export async function poll(env, { fetchImpl = fetch, now = new Date() } = {}) {
 
   await kv.put(KEYS.state, JSON.stringify(state));
   if (work.length || translated) await kv.put(KEYS.recalls, JSON.stringify(recalls));
+  await addCounts(env, counts, now);
   return summary;
 }
 
 /** Push each recall to every subscription whose settings want it. */
-export async function notifyAll(env, recalls, { fetchImpl = fetch } = {}) {
+export async function notifyAll(env, recalls, { fetchImpl = fetch, counts = {} } = {}) {
+  const bump = (name) => { counts[name] = (counts[name] || 0) + 1; };
   const subs = await listSubscriptions(env.KV);
   let sent = 0;
   for (const sub of subs) {
@@ -176,7 +192,7 @@ export async function notifyAll(env, recalls, { fetchImpl = fetch } = {}) {
       if (!d.notify) continue;
       const note = notificationFor(recall, sub.settings);
       const res = await sendPush(env, sub.subscription, note, { fetchImpl, urgency: note.silent ? 'normal' : 'high' });
-      if (res.ok) sent++;
+      if (res.ok) { sent++; bump('push_sent'); } else if (res.gone) bump('push_gone'); else bump('push_rejected');
       if (res.gone) {
         await env.KV.delete(sub.key);
         break;

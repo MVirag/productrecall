@@ -95,9 +95,10 @@ async function api(path, body) {
   return data;
 }
 
-async function loadRecalls() {
+// `via` ("scan") tells the server why the list is wanted; the request is the same one the app needs anyway.
+async function loadRecalls(via) {
   try {
-    const d = await api('/api/recalls');
+    const d = await api(via ? `/api/recalls?via=${via}` : '/api/recalls');
     cache = { recalls: d.recalls, lastPoll: d.lastPoll, lastError: d.lastError, offline: d._fromCache || false };
   } catch (e) {
     if (!cache.recalls) throw e;
@@ -312,15 +313,22 @@ function factRow(iconName, title, label) {
     h('div', { class: 'fact-text' }, h('p', { class: 'fact-title' }, title), h('p', { class: 'muted small' }, label)));
 }
 
-async function viewRecall(id) {
+let lastRecall = null;
+// `via` is "push" when the reader came from a notification; `reuse` redraws without asking the server again.
+async function viewRecall(id, via, reuse = false) {
   const tok = navToken;
   const m = main();
   m.replaceChildren(h('p', { class: 'muted', role: 'status' }, t('loading')));
   let r;
-  try {
-    r = await api(`/api/recalls/${encodeURIComponent(id)}`);
-  } catch {
-    r = cache.recalls?.find((x) => x.id === id);
+  if (reuse && lastRecall?.id === id) {
+    r = lastRecall;
+  } else {
+    try {
+      r = await api(`/api/recalls/${encodeURIComponent(id)}${via === 'push' ? '?via=push' : ''}`);
+    } catch {
+      r = cache.recalls?.find((x) => x.id === id);
+    }
+    lastRecall = r || null;
   }
   if (tok !== navToken) return;
   if (!r) {
@@ -402,7 +410,7 @@ async function viewRecall(id) {
         showOriginal.has(r.id) ? 'Showing the original Danish text. ' : 'Machine-translated from Danish. ',
         h('button', { type: 'button', class: 'linkbtn', onclick: () => {
           if (showOriginal.has(r.id)) showOriginal.delete(r.id); else showOriginal.add(r.id);
-          viewRecall(r.id);
+          viewRecall(r.id, undefined, true);
         } }, showOriginal.has(r.id) ? 'Show English' : 'Show original')) : null,
       settings.lang === 'en' && !r.en ? h('p', { class: 'muted small' }, 'English translation not ready yet – showing the Danish notice.') : null,
       h('ul', { class: 'facts' },
@@ -568,7 +576,15 @@ async function viewSettings() {
       h('h2', {}, t('status')),
       h('p', {}, `${t('lastCheck')}: ${fmtTime(status?.lastPoll)}`),
       status?.lastError ? h('p', {}, `${t('feedError')}: ${status.lastError.message} (${fmtTime(status.lastError.at)})`) : null,
+      status?.last7days ? h('dl', { class: 'week' },
+        [['pushSent', 'push_sent'], ['pushRejected', 'push_rejected'], ['pushGone', 'push_gone'], ['recallsNew', 'recalls_new'], ['pollFailed', 'poll_failed'], ['detailFailed', 'detail_failed']]
+          .flatMap(([label, key]) => [h('dt', {}, t(`week_${label}`)), h('dd', {}, String(status.last7days[key] ?? 0))])) : null,
+      status?.last7days ? h('p', {}, t('weekNote')) : null,
       h('p', {}, t('about'))),
+
+    h('section', { class: 'panel small' },
+      h('h2', {}, t('privacyTitle')),
+      h('ul', { class: 'plain-list' }, ['privacyPhone', 'privacyServer', 'privacyCounts', 'privacyOthers'].map((k) => h('li', {}, t(k))))),
   );
 }
 
@@ -711,7 +727,7 @@ async function viewScanResult(code) {
   m.replaceChildren(h('p', { class: 'muted', role: 'status' }, t('loading')));
   let recalls;
   try {
-    ({ recalls } = await loadRecalls());
+    ({ recalls } = await loadRecalls('scan'));
   } catch {
     if (tok !== navToken) return;
     m.replaceChildren(h('p', { class: 'notice' }, t('loadError')), h('a', { href: '#/scan', class: 'btn' }, t('resultAgain')));
@@ -774,8 +790,8 @@ function route() {
     const active = (a.getAttribute('href') === '#/settings') === hash.startsWith('#/settings');
     if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
-  const m = hash.match(/^#\/recall\/(.+)$/);
-  if (m) return viewRecall(decodeURIComponent(m[1]));
+  const m = hash.match(/^#\/recall\/([^?]+)(?:\?via=(push))?$/);
+  if (m) return viewRecall(decodeURIComponent(m[1]), m[2]);
   const imp = hash.match(/^#\/import\/([A-Za-z0-9_-]+)$/);
   if (imp) return viewImport(imp[1]);
   if (hash === '#/scan') return viewScan();

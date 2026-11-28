@@ -110,7 +110,7 @@ test('card summary and push text', () => {
   assert.equal(n.title, "🔴 Din butik: Rema 1000 · Heat'n Eat Okse kebab");
   assert.equal(n.body, 'Kan gøre dig syg · 400 g · Bedst før 07.04.2028 +1 · Risikomateriale (kvæg) · Aflever i butikken eller kassér');
   assert.equal(n.silent, false);
-  assert.equal(n.url, '/#/recall/2026-nov-tilbagekald-af-oksekebab');
+  assert.equal(n.url, '/#/recall/2026-nov-tilbagekald-af-oksekebab?via=push');
 
   const en = notificationFor(page('2026-nov-tilbagekald-af-ispinde'), { lang: 'en', chains: [] });
   assert.match(en.title, /^🟠 Lidl · Gelatelli/);

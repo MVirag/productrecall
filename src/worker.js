@@ -1,7 +1,8 @@
 // Cloudflare Worker entry: JSON API under /api/*, static PWA from ./public,
 // and the 15-minute Cron Trigger that polls Fødevarestyrelsen.
 
-import { poll, loadState, loadRecalls, KEYS } from './poll.js';
+import { poll, loadState, loadRecalls, listSubscriptions, KEYS } from './poll.js';
+import { count, lastDays, dailyRecords, settingsOverview, RELIABILITY, RETENTION_DAYS } from './stats.js';
 import { sendPush, isValidSubscription, getVapid } from './push.js';
 import { isCurrentTranslation } from './translate.js';
 import { notificationFor } from '../public/shared/summary.js';
@@ -61,9 +62,20 @@ function light(r) {
   return rest;
 }
 
+/** Count one anonymous event without delaying the response (awaited when there is no ctx, e.g. in tests). */
+function track(ctx, env, name) {
+  const p = count(env, name);
+  if (ctx?.waitUntil) { ctx.waitUntil(p); return undefined; }
+  return p;
+}
+
+const isAdmin = (request, env) => !!env.ADMIN_TOKEN && request.headers.get('authorization') === `Bearer ${env.ADMIN_TOKEN}`;
+
 async function handleApi(request, env, ctx, url) {
   const path = url.pathname.replace(/\/+$/, '');
   const method = request.method;
+  // The app tells the server where a request came from ("scan", "push") on requests it has to make anyway.
+  const via = url.searchParams.get('via');
 
   if (path === '/api/config' && method === 'GET') {
     const vapid = await getVapid(env).catch(() => null);
@@ -72,18 +84,21 @@ async function handleApi(request, env, ctx, url) {
 
   if (path === '/api/status' && method === 'GET') {
     const s = await loadState(env.KV);
-    return json({ seeded: s.seeded, lastPoll: s.lastPoll, lastNew: s.lastNew || null, lastError: s.lastError, pending: s.pending.length });
+    // Reliability counters only (no usage numbers); anonymous sums for the last 7 days.
+    return json({ seeded: s.seeded, lastPoll: s.lastPoll, lastNew: s.lastNew || null, lastError: s.lastError, pending: s.pending.length, last7days: await lastDays(env, 7, RELIABILITY) });
   }
 
   if (path === '/api/recalls' && method === 'GET') {
     const recalls = await loadRecalls(env.KV);
     const s = await loadState(env.KV);
+    await track(ctx, env, via === 'scan' ? 'scan_checks' : 'feed_loads');
     return json({ recalls: recalls.map(light), lastPoll: s.lastPoll, lastError: s.lastError });
   }
 
   const one = path.match(/^\/api\/recalls\/([a-z0-9æøå-]+)$/);
   if (one && method === 'GET') {
     const r = (await loadRecalls(env.KV)).find((x) => x.id === decodeURIComponent(one[1]));
+    if (r) await track(ctx, env, via === 'push' ? 'recall_views_push' : 'recall_views');
     return r ? json(publicRecall(r)) : json({ error: 'not_found' }, 404);
   }
 
@@ -99,12 +114,18 @@ async function handleApi(request, env, ctx, url) {
       updated: new Date().toISOString(),
     };
     await env.KV.put(key, JSON.stringify(record));
+    await track(ctx, env, prev ? 'settings_synced' : 'notifications_on');
     return json({ ok: true, settings: record.settings });
   }
 
   if (path === '/api/unsubscribe' && method === 'POST') {
     const body = await readBody(request);
-    if (typeof body.endpoint === 'string') await env.KV.delete(await subKey(body.endpoint));
+    if (typeof body.endpoint === 'string') {
+      const key = await subKey(body.endpoint);
+      const existed = await env.KV.get(key);
+      await env.KV.delete(key);
+      if (existed) await track(ctx, env, 'notifications_off');
+    }
     return json({ ok: true });
   }
 
@@ -137,10 +158,15 @@ async function handleApi(request, env, ctx, url) {
 
   // Manual poll, for debugging: curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" .../api/admin/poll
   if (path === '/api/admin/poll' && method === 'POST') {
-    if (!env.ADMIN_TOKEN || request.headers.get('authorization') !== `Bearer ${env.ADMIN_TOKEN}`) {
-      return json({ error: 'forbidden' }, 403);
-    }
+    if (!isAdmin(request, env)) return json({ error: 'forbidden' }, 403);
     return json(await poll(env));
+  }
+
+  // Anonymous daily counters and totals over stored settings. Needs ADMIN_TOKEN.
+  if (path === '/api/admin/stats' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'forbidden' }, 403);
+    const subs = await listSubscriptions(env.KV);
+    return json({ retentionDays: RETENTION_DAYS, days: await dailyRecords(env, 30), settings: settingsOverview(subs) });
   }
 
   return json({ error: 'not_found' }, 404);

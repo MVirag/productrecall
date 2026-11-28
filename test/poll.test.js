@@ -130,7 +130,7 @@ test('first run seeds silently, a new recall is pushed once and decrypts correct
   assert.equal(msg.silent, false);
   assert.match(msg.body, /^Ikke akut · /);
   assert.match(msg.body, /Bedst før 30\.09\.2026 \+2 · Mykotoksiner · Kassér/);
-  assert.equal(msg.url, '/#/recall/2026-nov-tilbagekald-smaakager-coronet');
+  assert.equal(msg.url, '/#/recall/2026-nov-tilbagekald-smaakager-coronet?via=push');
 
   // 4) same feed again: no duplicate push.
   await poll(env, { fetchImpl: net.fetchImpl });

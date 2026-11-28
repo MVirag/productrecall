@@ -367,3 +367,6 @@ input[type="text"], input[type="date"] {
 .scan-hit > h2 { margin: var(--space-4) 0 var(--space-2); }
 .scan-actions { margin-top: var(--space-5); flex-direction: column; }
 .scan-actions .btn { width: 100%; }
+
+.week { margin: var(--space-2) 0; }
+.week dd { font-weight: 700; font-variant-numeric: tabular-nums; }

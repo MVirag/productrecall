@@ -159,7 +159,7 @@ recall.
 | `VAPID_PUBLIC_KEY` | optional secret | Pin the Web Push public key (otherwise generated and kept in KV) |
 | `VAPID_PRIVATE_KEY` | optional secret | Pin the Web Push private key (base64url `d`) |
 | `VAPID_SUBJECT` | var | Contact URL sent to push services (your Worker URL) |
-| `ADMIN_TOKEN` | optional secret | Enables `POST /api/admin/poll` |
+| `ADMIN_TOKEN` | optional secret | Enables `POST /api/admin/poll` and `GET /api/admin/stats` |
 | `KV` | binding | Workers KV namespace (created automatically on first deploy) |
 | `AI` | binding | Workers AI, for English translations (optional: without it the app shows Danish) |
 
@@ -171,7 +171,7 @@ subscriptions: turn notifications off and on again in the app.
 | Method & path | Purpose |
 |---|---|
 | `GET /api/config` | VAPID public key, default chains |
-| `GET /api/status` | Last poll time, last error |
+| `GET /api/status` | Last poll time, last error, 7-day reliability counters |
 | `GET /api/recalls` | Stored recalls (newest 60, without raw text) |
 | `GET /api/recalls/:id` | One recall incl. raw text |
 | `POST /api/subscribe` | `{subscription, settings}` – create/update |
@@ -179,6 +179,7 @@ subscriptions: turn notifications off and on again in the app.
 | `POST /api/test` | `{endpoint}` – test notification to that device |
 | `POST /api/replay` | `{endpoint, id}` – send a past recall to that device |
 | `POST /api/admin/poll` | Run the poll now (`Authorization: Bearer ADMIN_TOKEN`) |
+| `GET /api/admin/stats` | Anonymous daily counters (30 days) and totals over stored settings (`Authorization: Bearer ADMIN_TOKEN`) |
 
 ## Risk categories (from Fødevarestyrelsen's own wording)
 
@@ -267,6 +268,33 @@ How it works:
   denied camera, a wrong check digit and the English screens. The native
   `BarcodeDetector` path was tested only with a stand-in detector; real
   focus, light and the camera permission prompt on a phone are not covered.
+
+## Privacy and telemetry
+
+**What is stored**
+
+- *On the phone:* settings (stores, watch words, language, allergies, household switch, quiet categories). Barcodes and camera images are processed on the phone only; no request contains a scanned barcode.
+- *On the server (Cloudflare KV), only while notifications are on:* the device's push address and the same settings, so notifications can be tailored. Turning notifications off in the app deletes that record (`POST /api/unsubscribe`); a device the push service reports as gone is deleted automatically.
+- *Anonymous counters,* below.
+
+**Anonymous counters (`src/stats.js`)**
+
+A counter is an event name and a number for one UTC day. There is no user, device, IP address, user agent or time finer than the day. Only names on a fixed allow-list are counted. Records expire after 35 days (KV expiry). At most 400 counts per day are written, to protect the free plan's KV write limit; counts are not atomic and can be slightly off.
+
+- *Reliability, counted by the server while it works:* `poll_failed`, `detail_failed`, `recalls_new`, `parse_unsure`, `risk_unstated`, `push_sent`, `push_rejected`, `push_gone`, `translate_ok`, `translate_failed`. The last 7 days are shown under Settings → Status and in `GET /api/status`.
+- *Usage, counted from requests the app has to make anyway,* so no extra information is read from or sent by the phone for statistics: `feed_loads`, `scan_checks` (the list request made to check a scanned barcode, marked `?via=scan`), `recall_views`, `recall_views_push` (a recall opened by tapping a notification: the notification's link carries `?via=push`), `notifications_on`, `notifications_off`, `settings_synced`. These are visible only through `GET /api/admin/stats` (needs `ADMIN_TOKEN`), together with totals over the stored settings. Allergens and the household switch appear there only when 5 or more devices exist; watch words and typed store names are never listed.
+
+**Deliberately not collected:** clicks, scrolling, session length, location (not requested; no geolocation), device or user identifiers, cookies, fingerprints, third-party analytics, or any beacon sent by the phone for statistics.
+
+**Logs:** the Worker writes its own log lines (one summary per check, errors). Cloudflare's automatic per-request invocation logs are switched off (`observability.logs.invocation_logs: false`) so that request details such as IP addresses are not kept in logs. Cloudflare still sees request data such as IP addresses to serve the app, as the hosting provider.
+
+**Third parties:** Cloudflare (hosting, storage, translation), Google's push service (delivers notifications; content is encrypted), and Fødevarestyrelsen's image server (product photos load directly from the phone).
+
+**Before other households use the app.** This is a description of the design, not legal advice. As long as only the author's household uses it, the data is the author's own. For other people:
+
+- Allergies and the "pregnant, small children or weak immune system" switch are stored next to a device identifier. They are arguably health data (GDPR art. 9) and need explicit consent plus a privacy notice. The alternative is to keep them on the phone only, which would change how "only my stores" mode can decide to notify.
+- A privacy notice (who is responsible, what is processed, why, how long, rights, contact) and Cloudflare's data processing terms should be in place.
+- Anything that stores or reads information on the phone for statistics (cookies, local IDs, scripts, beacons) generally needs consent under the ePrivacy rules; none is used.
 
 ## Non-food recalls (checked 27 Nov 2026)
 

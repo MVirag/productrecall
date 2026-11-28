@@ -1,5 +1,5 @@
 // Service worker: app-shell cache, offline recall list, push notifications.
-const VERSION = 'v8';
+const VERSION = 'v9';
 const SHELL = `shell-${VERSION}`;
 const DATA = 'data';
 const SHELL_FILES = [
